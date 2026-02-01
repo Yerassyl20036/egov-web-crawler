@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mongodb:
+    build: .
+    container_name: web-crawler-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: webCrawlerArchive
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - crawler-network
+
+  # Uncomment when you want to run the crawler in Docker
+  # crawler:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.crawler
+  #   container_name: web-crawler-app
+  #   depends_on:
+  #     - mongodb
+  #   environment:
+  #     MONGODB_URI: mongodb://admin:password@mongodb:27017/webCrawlerArchive?authSource=admin
+  #   networks:
+  #     - crawler-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  crawler-network:
+    driver: bridge
