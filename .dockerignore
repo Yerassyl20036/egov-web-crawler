@@ -1,0 +1,9 @@
+.git
+.github
+.env
+**/.DS_Store
+web/node_modules
+web/dist
+data/datasets_export.csv
+*.md
+docs

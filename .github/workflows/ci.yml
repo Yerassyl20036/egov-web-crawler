@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      agent_eval:
+        description: "Also run the end-to-end agent eval (uses the ANTHROPIC_API_KEY secret and costs tokens)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go vet + test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://test:test@localhost:5432/test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go build ./cmd/...
+
+  web:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  evals:
+    name: Retrieval evals
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: egov
+          POSTGRES_PASSWORD: egov
+          POSTGRES_DB: egov
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U egov" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://egov:egov@localhost:5432/egov?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Seed the catalog snapshot
+        run: go run ./cmd/seed -file data/datasets.jsonl.gz
+      - name: Retrieval eval (no API key needed)
+        run: go run ./cmd/eval -summary "$GITHUB_STEP_SUMMARY" -out eval-results.json -min-hit5 0.9
+      - name: Agent eval
+        if: github.event_name == 'workflow_dispatch' && inputs.agent_eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: go run ./cmd/eval -agent -summary "$GITHUB_STEP_SUMMARY" -out eval-results-agent.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: eval-results*.json
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ask-data-egov .
+      - run: docker build -t ask-data-egov-web ./web
