@@ -1,0 +1,70 @@
+# Production stack for one small VM (tested on a 1 GB Oracle Cloud micro):
+# Postgres + the API, which also serves the web UI and seeds the catalog
+# from the bundled snapshot on first start.
+#
+#   cp .env.example .env   # set POSTGRES_PASSWORD and one LLM key
+#   docker compose up -d                                  # http://<server>:8080
+#   COMPOSE_PROFILES=https DOMAIN=ask.example.com docker compose up -d   # + HTTPS on 443
+#
+# See deploy/README.md for the full walkthrough.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: egov
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: egov
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No published port: only the api container can reach the database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U egov -d egov"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: ${IMAGE:-ask-data-egov:latest}
+    restart: unless-stopped
+    command: ["api"]
+    environment:
+      DATABASE_URL: postgres://egov:${POSTGRES_PASSWORD}@db:5432/egov?sslmode=disable
+      AUTO_SEED_FILE: /app/data/datasets.jsonl.gz
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      AGENT_MODEL: ${AGENT_MODEL:-}
+      AGENT_EFFORT: ${AGENT_EFFORT:-medium}
+      CHAT_RATE_PER_MIN: ${CHAT_RATE_PER_MIN:-5}
+      CHAT_DAILY_LIMIT: ${CHAT_DAILY_LIMIT:-200}
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Optional automatic HTTPS (Let's Encrypt). Needs port 443 open in the
+  # cloud firewall and DOMAIN pointing at the server (an sslip.io name works).
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: ["caddy", "reverse-proxy", "--from", "${DOMAIN:-localhost}", "--to", "api:8080"]
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:

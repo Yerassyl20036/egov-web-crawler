@@ -4,6 +4,8 @@
 
 **An AI agent that finds the right government dataset on [data.egov.kz](https://data.egov.kz), Kazakhstan's open-data portal. Ask in English, Russian or Kazakh and get an answer with verified links to the datasets.**
 
+**Live demo: <http://158.180.23.143:8080>**. It runs on a free Oracle Cloud VM with a free LLM tier. When the day's free model quota is used up, the chat says so and shows plain search results instead.
+
 <table>
 <tr>
 <td width="50%"><img src="docs/demo-steps.jpg" alt="Agent steps: a Kazakh question is turned into a Russian catalog search"></td>
@@ -176,6 +178,10 @@ DEEPSEEK_API_KEY=sk-... go run ./cmd/api   # :8080
 cd web && npm install && npm run dev    # :5173, proxies /api to :8080
 ```
 
+### Deploy to a server
+
+`deploy/deploy.sh <ssh-host>` builds the image for the server's CPU, streams it over SSH and restarts a two-container stack: Postgres, plus the API serving the UI, with optional Caddy for HTTPS. The live demo runs this way on a 1 GB Oracle Cloud VM; see [deploy/README.md](deploy/README.md).
+
 ### Refresh the data from the portal
 
 ```bash
@@ -230,6 +236,7 @@ internal/
   eval/       metrics (Hit@k, Recall@k, MRR, citation checks)
   store/      Postgres store, migrations, hybrid search
 web/          React + TypeScript + Vite chat UI (nginx image for Compose)
+deploy/       production Compose file, deploy script and VM walkthrough
 evals/        cases.json: the labelled question set
 data/         datasets.jsonl.gz snapshot; datasets_export.csv (original Mongo export, Feb 2026)
 ```
