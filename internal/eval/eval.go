@@ -179,6 +179,7 @@ type AgentScore struct {
 	OutputTokens    int64    `json:"output_tokens"`
 	DurationMS      int64    `json:"duration_ms"`
 	Error           string   `json:"error,omitempty"`
+	Skipped         bool     `json:"skipped,omitempty"` // provider quota/rate limit: not scored
 }
 
 // Runner is the agent under test.
@@ -186,8 +187,11 @@ type Runner interface {
 	Run(ctx context.Context, history []agent.Message, emit func(agent.Event)) (*agent.Result, error)
 }
 
-// Agent asks the agent every question and checks its citations.
-func Agent(ctx context.Context, r Runner, cases []Case, progress func(AgentScore)) []AgentScore {
+// Agent asks the agent every question and checks its citations. Questions
+// that fail on a provider rate limit or quota are marked Skipped and left
+// out of the scores. progress is called after each question; returning
+// false stops the run.
+func Agent(ctx context.Context, r Runner, cases []Case, progress func(AgentScore) bool) []AgentScore {
 	var out []AgentScore
 	for _, c := range cases {
 		qctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -196,8 +200,9 @@ func Agent(ctx context.Context, r Runner, cases []Case, progress func(AgentScore
 		s := AgentScore{CaseID: c.ID, Lang: c.Lang}
 		if err != nil {
 			s.Error = err.Error()
+			s.Skipped = isRateLimit(s.Error)
 		}
-		if res != nil {
+		if res != nil && !s.Skipped {
 			for _, cit := range res.Citations {
 				s.Citations = append(s.Citations, cit.APIURI)
 				if !cit.Verified {
@@ -223,12 +228,19 @@ func Agent(ctx context.Context, r Runner, cases []Case, progress func(AgentScore
 			s.InputTokens, s.OutputTokens = res.Usage.InputTokens, res.Usage.OutputTokens
 			s.DurationMS = res.DurationMS
 		}
-		if progress != nil {
-			progress(s)
-		}
 		out = append(out, s)
+		if progress != nil && !progress(s) {
+			break
+		}
 	}
 	return out
+}
+
+func isRateLimit(msg string) bool {
+	msg = strings.ToLower(msg)
+	return strings.Contains(msg, "returned 429") || strings.Contains(msg, "rate limit") ||
+		strings.Contains(msg, "rate-limit") || strings.Contains(msg, "insufficient balance") ||
+		strings.Contains(msg, "credit balance is too low")
 }
 
 // AgentSummary aggregates AgentScores for one group.
@@ -239,6 +251,7 @@ type AgentSummary struct {
 	Retrieved     float64 `json:"retrieved_expected_rate"`
 	Unverified    int     `json:"unverified_citations"`
 	Errors        int     `json:"errors"`
+	Skipped       int     `json:"skipped_rate_limited"`
 	AvgToolCalls  float64 `json:"avg_tool_calls"`
 	AvgSeconds    float64 `json:"avg_seconds"`
 	AvgInputTok   float64 `json:"avg_input_tokens"`
@@ -261,6 +274,10 @@ func SummarizeAgent(scores []AgentScore) []AgentSummary {
 			if lang != "all" && s.Lang != lang {
 				continue
 			}
+			if s.Skipped {
+				sum.Skipped++
+				continue
+			}
 			sum.N++
 			if s.CitedExpected {
 				sum.CitedExpected++
@@ -278,6 +295,9 @@ func SummarizeAgent(scores []AgentScore) []AgentSummary {
 			sum.AvgOutputTok += float64(s.OutputTokens)
 		}
 		if sum.N == 0 {
+			if sum.Skipped > 0 {
+				out = append(out, sum)
+			}
 			continue
 		}
 		n := float64(sum.N)
@@ -308,9 +328,16 @@ func AgentTable(rows []AgentSummary) string {
 	var b strings.Builder
 	b.WriteString("| Language | N | Cited an expected dataset | Expected dataset retrieved | Unverified links | Errors | Avg tool calls | Avg latency (s) | Avg input tok | Avg output tok |\n")
 	b.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+	skipped := 0
 	for _, r := range rows {
+		if r.Group == "all" {
+			skipped = r.Skipped
+		}
 		fmt.Fprintf(&b, "| %s | %d | %.2f | %.2f | %d | %d | %.1f | %.1f | %.0f | %.0f |\n", r.Group, r.N, r.CitedExpected,
 			r.Retrieved, r.Unverified, r.Errors, r.AvgToolCalls, r.AvgSeconds, r.AvgInputTok, r.AvgOutputTok)
+	}
+	if skipped > 0 {
+		fmt.Fprintf(&b, "\n_%d question(s) not scored: the provider's rate limit or quota stopped them._\n", skipped)
 	}
 	return b.String()
 }

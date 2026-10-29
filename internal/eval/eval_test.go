@@ -2,9 +2,11 @@ package eval
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 
+	"github.com/Yerassyl20036/egov-web-crawler/internal/agent"
 	"github.com/Yerassyl20036/egov-web-crawler/internal/catalog"
 	"github.com/Yerassyl20036/egov-web-crawler/internal/store"
 )
@@ -48,5 +50,35 @@ func TestRetrievalMetrics(t *testing.T) {
 	}
 	if sum[0].Group != "keywords / all" {
 		t.Fatalf("summary order = %v", sum[0].Group)
+	}
+}
+
+type scriptedRunner struct{ results map[string]error }
+
+func (r scriptedRunner) Run(_ context.Context, h []agent.Message, _ func(agent.Event)) (*agent.Result, error) {
+	if err := r.results[h[0].Content]; err != nil {
+		return nil, err
+	}
+	return &agent.Result{Citations: []agent.Citation{{DatasetRef: agent.DatasetRef{APIURI: "h1"}, Verified: true}}}, nil
+}
+
+func TestAgentSkipsRateLimitedQuestions(t *testing.T) {
+	cases := []Case{
+		{ID: "a", Lang: "en", Question: "qa", Expected: []string{"h1"}},
+		{ID: "b", Lang: "en", Question: "qb", Expected: []string{"h1"}},
+		{ID: "c", Lang: "en", Question: "qc", Expected: []string{"h1"}},
+	}
+	runner := scriptedRunner{results: map[string]error{
+		"qb": errors.New("agent: openrouter returned 429: rate limit exceeded: free-models-per-day"),
+		"qc": errors.New("agent: something broke"),
+	}}
+	scores := Agent(context.Background(), runner, cases, func(AgentScore) bool { return true })
+	sum := SummarizeAgent(scores)[0]
+	if sum.N != 2 || sum.Skipped != 1 || sum.Errors != 1 || sum.CitedExpected != 0.5 {
+		t.Fatalf("summary = %+v", sum)
+	}
+	stopped := Agent(context.Background(), runner, cases, func(AgentScore) bool { return false })
+	if len(stopped) != 1 {
+		t.Fatalf("progress returning false should stop the run, got %d scores", len(stopped))
 	}
 }

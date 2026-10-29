@@ -73,15 +73,33 @@ func main() {
 			log.Printf("skipping agent eval: %v", cfg.Validate())
 		} else {
 			a := agent.New(cfg, &agent.Tools{Catalog: db})
-			agentScores := eval.Agent(ctx, a, cases, func(s eval.AgentScore) {
+			skippedInARow := 0
+			agentScores := eval.Agent(ctx, a, cases, func(s eval.AgentScore) bool {
 				status := "MISS"
-				if s.CitedExpected {
+				switch {
+				case s.Skipped:
+					status = "SKIP"
+				case s.CitedExpected:
 					status = "ok"
 				}
-				fmt.Fprintf(os.Stderr, "%-14s %-4s searches=%q cited=%v %s\n", s.CaseID, status, s.Searches, s.Citations, s.Error)
+				fmt.Fprintf(os.Stderr, "%-24s %-4s searches=%q cited=%v %s\n", s.CaseID, status, s.Searches, s.Citations, s.Error)
+				if s.Skipped {
+					skippedInARow++
+				} else {
+					skippedInARow = 0
+				}
+				if skippedInARow == 3 {
+					log.Print("stopping: 3 questions in a row hit the provider's rate limit or quota")
+					return false
+				}
+				return true
 			})
 			agentSummary := eval.SummarizeAgent(agentScores)
-			report += fmt.Sprintf("### Agent (%s `%s`, effort `%s`, %d questions)\n\n%s\n", cfg.Provider, cfg.Model, cfg.Effort, len(cases), eval.AgentTable(agentSummary))
+			effort := ""
+			if cfg.Provider == agent.ProviderAnthropic || cfg.Provider == agent.ProviderDeepSeek {
+				effort = fmt.Sprintf(", effort `%s`", cfg.Effort)
+			}
+			report += fmt.Sprintf("### Agent (%s `%s`%s, %d questions)\n\n%s\n", cfg.Provider, cfg.Model, effort, len(cases), eval.AgentTable(agentSummary))
 			results["agent"], results["agent_summary"] = agentScores, agentSummary
 		}
 	}
