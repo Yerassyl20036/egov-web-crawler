@@ -69,8 +69,8 @@ func main() {
 
 	results := map[string]any{"retrieval": scores, "retrieval_summary": retrieval}
 	if *runAgent {
-		if os.Getenv("ANTHROPIC_API_KEY") == "" && os.Getenv("ANTHROPIC_AUTH_TOKEN") == "" {
-			log.Print("skipping agent eval: ANTHROPIC_API_KEY is not set")
+		if !agent.CredentialsConfigured() {
+			log.Print("skipping agent eval: no Anthropic credentials (set ANTHROPIC_API_KEY or run `ant auth login`)")
 		} else {
 			cfg := agent.FromEnv()
 			a := agent.New(cfg, &agent.Tools{Catalog: db})

@@ -95,7 +95,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		cfg := s.Agent.Config()
 		body["agent"] = map[string]any{"enabled": true, "model": cfg.Model, "effort": cfg.Effort, "fallbacks": cfg.Fallbacks}
 	} else {
-		body["agent"] = map[string]any{"enabled": false, "reason": "ANTHROPIC_API_KEY is not set; search-only mode"}
+		body["agent"] = map[string]any{"enabled": false, "reason": "no Anthropic credentials on the server; search-only mode"}
 	}
 	writeJSON(w, status, body)
 }
@@ -147,7 +147,7 @@ type chatRequest struct {
 // The stream always ends with a "done" or "error" event.
 func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	if s.Agent == nil {
-		writeError(w, http.StatusServiceUnavailable, "the AI agent is disabled on this server (no ANTHROPIC_API_KEY); use /api/search")
+		writeError(w, http.StatusServiceUnavailable, "the AI agent is disabled on this server (no Anthropic credentials); use /api/search")
 		return
 	}
 	var req chatRequest

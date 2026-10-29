@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/config"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 )
@@ -114,8 +115,21 @@ type Agent struct {
 	tools  *Tools
 }
 
-// New builds an agent. The SDK reads ANTHROPIC_API_KEY (or another
-// configured credential source) from the environment.
+// CredentialsConfigured reports whether the SDK's default credential chain
+// has something to use: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, a profile
+// from `ant auth login`, or workload identity federation.
+func CredentialsConfigured() bool {
+	for _, key := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID"} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	_, err := config.LoadConfig()
+	return err == nil
+}
+
+// New builds an agent. The SDK resolves credentials itself (see
+// CredentialsConfigured).
 func New(cfg Config, tools *Tools, opts ...option.RequestOption) *Agent {
 	return &Agent{client: anthropic.NewClient(opts...), cfg: cfg, tools: tools}
 }

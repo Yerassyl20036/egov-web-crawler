@@ -157,7 +157,7 @@ DATABASE_URL=... ANTHROPIC_API_KEY=... go run ./cmd/eval -agent   # end-to-end a
 | Variable | Default | |
 |---|---|---|
 | `DATABASE_URL` | (required) | Postgres connection string |
-| `ANTHROPIC_API_KEY` | | Enables the agent; search-only without it |
+| `ANTHROPIC_API_KEY` | | Enables the agent. An `ant auth login` profile (or `ANTHROPIC_AUTH_TOKEN`) works too; with no credentials the app runs search-only |
 | `AGENT_MODEL` | `claude-opus-5-5` | Claude model id |
 | `AGENT_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max` |
 | `AGENT_THINKING_DISPLAY` | `updates` | `updates` (progress notes shown as steps), `summarized` or `omitted` |

@@ -5,7 +5,8 @@
 //
 //	DATABASE_URL        Postgres connection string (required)
 //	PORT                listen port (default 8080)
-//	ANTHROPIC_API_KEY   enables the AI agent; without it the app runs search-only
+//	ANTHROPIC_API_KEY   enables the AI agent (an `ant auth login` profile works too);
+//	                    without credentials the app runs search-only
 //	AGENT_MODEL         default claude-opus-5-5 (see internal/agent for the rest)
 //	EGOV_API_KEY        enables the preview_rows tool (data.egov.kz API key)
 //	WEB_DIR             serve the built frontend from this directory
@@ -78,12 +79,12 @@ func run(logger *slog.Logger) error {
 		ChatPerMinute: envInt("CHAT_RATE_PER_MIN", 10),
 		ChatPerDay:    envInt("CHAT_DAILY_LIMIT", 0),
 	}
-	if os.Getenv("ANTHROPIC_API_KEY") != "" || os.Getenv("ANTHROPIC_AUTH_TOKEN") != "" {
+	if agent.CredentialsConfigured() {
 		cfg := agent.FromEnv()
 		srv.Agent = agent.New(cfg, tools)
 		logger.Info("agent enabled", "model", cfg.Model, "effort", cfg.Effort, "fallbacks", cfg.Fallbacks, "preview_rows", srv.PreviewRows)
 	} else {
-		logger.Warn("ANTHROPIC_API_KEY not set: running in search-only mode")
+		logger.Warn("no Anthropic credentials (ANTHROPIC_API_KEY or `ant auth login`): running in search-only mode")
 	}
 
 	httpServer := &http.Server{
