@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -109,6 +111,11 @@ func (c *claudeConversation) next(ctx context.Context, emit func(Event)) (turn, 
 		}
 	}
 	if err := stream.Err(); err != nil {
+		var apiErr *anthropic.Error
+		if errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusTooManyRequests ||
+			strings.Contains(apiErr.Error(), "credit balance is too low")) {
+			return turn{}, fmt.Errorf("%w: %v", ErrQuota, err)
+		}
 		return turn{}, fmt.Errorf("agent: %w", err)
 	}
 	c.messages = append(c.messages, msg.ToParam())

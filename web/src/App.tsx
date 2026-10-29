@@ -53,8 +53,21 @@ export default function App() {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    let quotaHit = false;
     try {
-      await streamChat(history, (e) => update((a) => applyEvent(a, e)), controller.signal);
+      await streamChat(
+        history,
+        (e) => {
+          if (e.type === "error" && e.code === "llm_quota") quotaHit = true;
+          update((a) => applyEvent(a, e));
+        },
+        controller.signal,
+      );
+      if (quotaHit) {
+        // The model is out of quota: still answer with plain full-text search.
+        const hits = await search(question).catch(() => []);
+        update((a) => ({ ...a, hits }));
+      }
       update((a) => (a.status === "streaming" ? { ...a, status: "error", error: "The stream ended unexpectedly." } : a));
     } catch (err) {
       const aborted = controller.signal.aborted;

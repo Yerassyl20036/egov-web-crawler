@@ -138,6 +138,7 @@ type Event struct {
 	Type string `json:"type"` // thinking | text | tool_call | tool_result | fallback | refusal | done | error
 
 	Text string `json:"text,omitempty"`
+	Code string `json:"code,omitempty"` // on errors: "llm_quota" when the model is out of quota
 
 	ID       string          `json:"id,omitempty"`
 	Name     string          `json:"name,omitempty"`
@@ -185,6 +186,10 @@ type Result struct {
 
 // ErrRefused is returned when the model (and any fallback model) declined.
 var ErrRefused = errors.New("agent: the request was declined")
+
+// ErrQuota is returned when the LLM provider refuses for rate limits, a used
+// up free quota or an empty balance. The API falls back to plain search.
+var ErrQuota = errors.New("agent: the LLM provider's rate limit or quota was reached")
 
 // Agent answers catalog questions with an LLM and the catalog tools.
 type Agent struct {

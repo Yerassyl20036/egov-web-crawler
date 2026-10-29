@@ -1,6 +1,6 @@
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { datasetIdFromHref, type Citation } from "../api";
+import { datasetIdFromHref, type Citation, type SearchHit } from "../api";
 import type { AssistantMessage } from "../chat";
 import { Steps } from "./Steps";
 
@@ -50,7 +50,10 @@ export function Answer({ msg }: { msg: AssistantMessage }) {
       )}
       {streaming && !msg.answer && msg.steps.length === 0 && <div className="typing">Thinking…</div>}
       {msg.status === "refused" && <div className="notice notice-warn">{msg.error}</div>}
-      {msg.status === "error" && <div className="notice notice-error">{msg.error}</div>}
+      {msg.status === "error" && (
+        <div className={`notice ${msg.errorCode === "llm_quota" ? "notice-warn" : "notice-error"}`}>{msg.error}</div>
+      )}
+      {msg.hits && <SearchResults hits={msg.hits} />}
       {msg.status === "done" && citations.length > 0 && <Sources citations={citations} />}
       {msg.result && (
         <div className="meta">
@@ -83,5 +86,21 @@ function Sources({ citations }: { citations: Citation[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+function SearchResults({ hits }: { hits: SearchHit[] }) {
+  if (hits.length === 0) return <div className="muted">No datasets matched a plain search either.</div>;
+  return (
+    <ul className="hits">
+      {hits.map((h) => (
+        <li key={h.api_uri}>
+          <a href={h.url} target="_blank" rel="noreferrer">
+            {h.title_ru}
+          </a>
+          <div className="source-meta">{[h.category_ru, h.agency_ru].filter(Boolean).join(" · ")}</div>
+        </li>
+      ))}
+    </ul>
   );
 }

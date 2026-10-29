@@ -30,7 +30,7 @@ export type AgentEvent =
   | { type: "fallback"; text: string }
   | { type: "refusal"; text: string }
   | { type: "done"; done: AgentResult }
-  | { type: "error"; text: string };
+  | { type: "error"; text: string; code?: string };
 
 export interface ChatTurn {
   role: "user" | "assistant";

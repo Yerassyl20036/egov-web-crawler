@@ -218,6 +218,10 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, agent.ErrRefused):
 		send(agent.Event{Type: "done", Done: res})
+	case errors.Is(err, agent.ErrQuota):
+		s.Logger.Warn("LLM quota or rate limit reached", "err", err)
+		send(agent.Event{Type: "error", Code: "llm_quota",
+			Text: "The AI model's quota is used up for now (the free tier allows a limited number of questions per day), so here are plain search results instead."})
 	case err != nil:
 		s.Logger.Error("agent run failed", "err", err)
 		send(agent.Event{Type: "error", Text: userFacingError(err)})

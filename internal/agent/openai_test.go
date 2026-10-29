@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -237,5 +238,32 @@ func TestFromEnvPicksProvider(t *testing.T) {
 	t.Setenv("LLM_API_KEY", "k")
 	if err := FromEnv().Validate(); err == nil {
 		t.Fatal("openai-compatible without base URL and model must not validate")
+	}
+}
+
+func TestOpenAICompatibleDailyQuotaIsErrQuota(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.Error(w, `{"error":{"message":"Rate limit exceeded: free-models-per-day","code":429}}`, http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+	_, err := New(deepseekConfig(srv.URL), &Tools{Catalog: newFakeCatalog()}).Run(context.Background(),
+		[]Message{{Role: "user", Content: "q"}}, func(Event) {})
+	if !errors.Is(err, ErrQuota) || calls != 1 {
+		t.Fatalf("err = %v after %d calls; a daily quota should fail fast with ErrQuota", err, calls)
+	}
+}
+
+func TestOpenAICompatibleMidStreamRateLimitIsErrQuota(t *testing.T) {
+	api := &fakeChatCompletions{turns: [][]string{{
+		`{"error":{"message":"some-model:free is temporarily rate-limited upstream. Please retry shortly"}}`,
+	}}}
+	srv := httptest.NewServer(api)
+	defer srv.Close()
+	_, err := New(deepseekConfig(srv.URL), &Tools{Catalog: newFakeCatalog()}).Run(context.Background(),
+		[]Message{{Role: "user", Content: "q"}}, func(Event) {})
+	if !errors.Is(err, ErrQuota) {
+		t.Fatalf("err = %v, want ErrQuota", err)
 	}
 }

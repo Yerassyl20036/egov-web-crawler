@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -156,5 +158,21 @@ func TestChatDailyBudget(t *testing.T) {
 	}
 	if resp := postChat(t, srv.URL, body); resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("over budget: %d, want 429", resp.StatusCode)
+	}
+}
+
+type quotaRunner struct{ fakeRunner }
+
+func (quotaRunner) Run(context.Context, []agent.Message, func(agent.Event)) (*agent.Result, error) {
+	return nil, fmt.Errorf("%w: openrouter returned 429", agent.ErrQuota)
+}
+
+func TestChatQuotaErrorHasCode(t *testing.T) {
+	srv := httptest.NewServer((&Server{Catalog: fakeCatalog{}, Agent: quotaRunner{}}).Handler())
+	defer srv.Close()
+	resp := postChat(t, srv.URL, `{"messages":[{"role":"user","content":"q"}]}`)
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"code":"llm_quota"`) {
+		t.Fatalf("stream should carry the llm_quota code: %s", body)
 	}
 }

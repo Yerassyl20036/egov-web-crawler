@@ -1,5 +1,5 @@
 // Chat state: folds the agent's event stream into renderable messages.
-import type { AgentEvent, AgentResult, ChatTurn, DatasetRef } from "./api";
+import type { AgentEvent, AgentResult, ChatTurn, DatasetRef, SearchHit } from "./api";
 
 export type Step =
   | {
@@ -26,6 +26,9 @@ export interface AssistantMessage {
   answer: string;
   status: "streaming" | "done" | "error" | "refused";
   error?: string;
+  /** "llm_quota": the model is out of quota; hits holds plain search results instead. */
+  errorCode?: string;
+  hits?: SearchHit[];
   result?: AgentResult;
 }
 
@@ -71,7 +74,7 @@ export function applyEvent(msg: AssistantMessage, e: AgentEvent): AssistantMessa
     case "done":
       return { ...msg, status: msg.status === "refused" ? "refused" : "done", result: e.done };
     case "error":
-      return { ...msg, status: "error", error: e.text };
+      return { ...msg, status: "error", error: e.text, errorCode: e.code };
   }
 }
 

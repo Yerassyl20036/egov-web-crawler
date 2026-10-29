@@ -177,7 +177,11 @@ func (c *openAIConversation) next(ctx context.Context, emit func(Event)) (turn, 
 			return turn{}, fmt.Errorf("agent: bad stream chunk: %w", err)
 		}
 		if ch.Error != nil {
-			return turn{}, fmt.Errorf("agent: %s: %s", c.b.cfg.Provider, ch.Error.Message)
+			err := fmt.Errorf("agent: %s: %s", c.b.cfg.Provider, ch.Error.Message)
+			if isRateLimitMessage(ch.Error.Message) {
+				err = fmt.Errorf("%w: %v", ErrQuota, err) // e.g. a free model busy upstream
+			}
+			return turn{}, err
 		}
 		if ch.Model != "" {
 			t.model = ch.Model
@@ -306,9 +310,27 @@ func (b *openAIBackend) open(ctx context.Context, req oaRequest) (io.ReadCloser,
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		resp.Body.Close()
 		lastErr = fmt.Errorf("agent: %s returned %d: %s", b.cfg.Provider, resp.StatusCode, strings.TrimSpace(string(msg)))
-		if resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500 {
-			return nil, lastErr // 4xx other than 429 won't get better on retry
+		switch {
+		case resp.StatusCode == http.StatusPaymentRequired:
+			return nil, fmt.Errorf("%w: %v", ErrQuota, lastErr) // empty balance
+		case resp.StatusCode == http.StatusTooManyRequests:
+			if bytes.Contains(bytes.ToLower(msg), []byte("per-day")) {
+				return nil, fmt.Errorf("%w: %v", ErrQuota, lastErr) // daily quota: retrying won't help
+			}
+			lastErr = fmt.Errorf("%w: %v", ErrQuota, lastErr)
+		case resp.StatusCode < 500:
+			return nil, lastErr // other 4xx won't get better on retry
 		}
 	}
 	return nil, lastErr
+}
+
+func isRateLimitMessage(msg string) bool {
+	msg = strings.ToLower(msg)
+	for _, marker := range []string{"rate-limit", "rate limit", "quota", "insufficient balance"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
