@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-
 	"github.com/Yerassyl20036/egov-web-crawler/internal/catalog"
 	"github.com/Yerassyl20036/egov-web-crawler/internal/store"
 )
@@ -56,62 +54,62 @@ type Tools struct {
 	Rows    RowPreviewer // nil disables preview_rows
 }
 
-// Definitions returns the tool schemas sent to Claude. Requests stream with
-// eager input streaming, so Execute validates every input itself.
-func (t *Tools) Definitions() []anthropic.BetaToolUnionParam {
-	defs := []anthropic.BetaToolParam{
+// ToolSpec is a provider-neutral tool definition: a name, a description
+// and a JSON Schema object for the input. Each LLM backend converts it to
+// its own wire format.
+type ToolSpec struct {
+	Name        string
+	Description string
+	Properties  map[string]any
+	Required    []string
+}
+
+// Specs returns the tools offered to the model. Inputs may arrive
+// unvalidated (eager input streaming, or providers that don't enforce
+// schemas), so Execute validates every input itself.
+func (t *Tools) Specs() []ToolSpec {
+	specs := []ToolSpec{
 		{
 			Name: "search_datasets",
-			Description: anthropic.String("Full-text search over the data.egov.kz catalog (about 4,000 dataset passports). " +
+			Description: "Full-text search over the data.egov.kz catalog (about 4,000 dataset passports). " +
 				"The index is Russian-first: pass Russian keywords (nouns and place names, not a full sentence) even if the user wrote in English or Kazakh. " +
 				"Returns datasets ranked by relevance with api_uri, title, description, category, publishing agency, update cadence and portal URL. " +
-				"Run several searches with synonyms or filters when the first results are weak."),
-			InputSchema: anthropic.BetaToolInputSchemaParam{
-				Properties: map[string]any{
-					"query":    map[string]any{"type": "string", "description": "Russian keywords, e.g. 'поголовье скота Костанайская область'"},
-					"category": map[string]any{"type": "string", "description": "Optional category filter (Russian or English name from list_categories), e.g. 'Здравоохранение'"},
-					"agency":   map[string]any{"type": "string", "description": "Optional filter on the publishing agency's name, e.g. 'Акимат города Алматы' or 'Министерство финансов'"},
-					"limit":    map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Number of results, default 8"},
-				},
-				Required: []string{"query"},
+				"Run several searches with synonyms or filters when the first results are weak.",
+			Properties: map[string]any{
+				"query":    map[string]any{"type": "string", "description": "Russian keywords, e.g. 'поголовье скота Костанайская область'"},
+				"category": map[string]any{"type": "string", "description": "Optional category filter (Russian or English name from list_categories), e.g. 'Здравоохранение'"},
+				"agency":   map[string]any{"type": "string", "description": "Optional filter on the publishing agency's name, e.g. 'Акимат города Алматы' or 'Министерство финансов'"},
+				"limit":    map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Number of results, default 8"},
 			},
+			Required: []string{"query"},
 		},
 		{
 			Name: "get_dataset",
-			Description: anthropic.String("Get the full passport of one dataset by api_uri: titles and descriptions in Russian/Kazakh/English, keywords, category, " +
-				"publishing agency, owner, update cadence, whether it is up to date, creation and last-update dates, views, downloads and the portal URL."),
-			InputSchema: anthropic.BetaToolInputSchemaParam{
-				Properties: map[string]any{
-					"api_uri": map[string]any{"type": "string", "description": "The dataset's api_uri from search_datasets"},
-				},
-				Required: []string{"api_uri"},
+			Description: "Get the full passport of one dataset by api_uri: titles and descriptions in Russian/Kazakh/English, keywords, category, " +
+				"publishing agency, owner, update cadence, whether it is up to date, creation and last-update dates, views, downloads and the portal URL.",
+			Properties: map[string]any{
+				"api_uri": map[string]any{"type": "string", "description": "The dataset's api_uri from search_datasets"},
 			},
+			Required: []string{"api_uri"},
 		},
 		{
 			Name:        "list_categories",
-			Description: anthropic.String("List the portal's dataset categories (Russian and English names) with dataset counts. Use it to choose a category filter or to describe what the catalog covers."),
-			InputSchema: anthropic.BetaToolInputSchemaParam{Properties: map[string]any{}},
+			Description: "List the portal's dataset categories (Russian and English names) with dataset counts. Use it to choose a category filter or to describe what the catalog covers.",
+			Properties:  map[string]any{},
 		},
 	}
 	if t.Rows != nil {
-		defs = append(defs, anthropic.BetaToolParam{
+		specs = append(specs, ToolSpec{
 			Name:        "preview_rows",
-			Description: anthropic.String("Fetch the first rows of a dataset from the official data API to see its columns and sample values. Use only on datasets you already found."),
-			InputSchema: anthropic.BetaToolInputSchemaParam{
-				Properties: map[string]any{
-					"api_uri": map[string]any{"type": "string", "description": "The dataset's api_uri"},
-					"limit":   map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "Number of rows, default 5"},
-				},
-				Required: []string{"api_uri"},
+			Description: "Fetch the first rows of a dataset from the official data API to see its columns and sample values. Use only on datasets you already found.",
+			Properties: map[string]any{
+				"api_uri": map[string]any{"type": "string", "description": "The dataset's api_uri"},
+				"limit":   map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "Number of rows, default 5"},
 			},
+			Required: []string{"api_uri"},
 		})
 	}
-	out := make([]anthropic.BetaToolUnionParam, len(defs))
-	for i := range defs {
-		defs[i].EagerInputStreaming = anthropic.Bool(true)
-		out[i] = anthropic.BetaToolUnionParam{OfTool: &defs[i]}
-	}
-	return out
+	return specs
 }
 
 var apiURIPattern = regexp.MustCompile(`^[A-Za-z0-9_\-]{1,200}$`)

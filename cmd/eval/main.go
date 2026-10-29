@@ -1,8 +1,8 @@
 // Command eval scores search retrieval (always) and the full agent (only
-// when ANTHROPIC_API_KEY is set and -agent is passed) on evals/cases.json.
+// with -agent and LLM credentials, see internal/agent) on evals/cases.json.
 //
 //	DATABASE_URL=postgres://... go run ./cmd/eval
-//	DATABASE_URL=postgres://... ANTHROPIC_API_KEY=... go run ./cmd/eval -agent
+//	DATABASE_URL=postgres://... DEEPSEEK_API_KEY=... go run ./cmd/eval -agent
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 func main() {
 	casesPath := flag.String("cases", "evals/cases.json", "eval cases")
 	k := flag.Int("k", 10, "search depth")
-	runAgent := flag.Bool("agent", false, "also run the end-to-end agent eval (needs ANTHROPIC_API_KEY; costs tokens)")
+	runAgent := flag.Bool("agent", false, "also run the end-to-end agent eval (needs LLM credentials; costs tokens)")
 	only := flag.String("only", "", "comma-separated case ids to run")
 	out := flag.String("out", "", "write full JSON results here")
 	summary := flag.String("summary", "", "append the markdown report here (e.g. $GITHUB_STEP_SUMMARY)")
@@ -69,10 +69,9 @@ func main() {
 
 	results := map[string]any{"retrieval": scores, "retrieval_summary": retrieval}
 	if *runAgent {
-		if !agent.CredentialsConfigured() {
-			log.Print("skipping agent eval: no Anthropic credentials (set ANTHROPIC_API_KEY or run `ant auth login`)")
+		if cfg := agent.FromEnv(); cfg.Validate() != nil {
+			log.Printf("skipping agent eval: %v", cfg.Validate())
 		} else {
-			cfg := agent.FromEnv()
 			a := agent.New(cfg, &agent.Tools{Catalog: db})
 			agentScores := eval.Agent(ctx, a, cases, func(s eval.AgentScore) {
 				status := "MISS"
@@ -82,7 +81,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "%-14s %-4s searches=%q cited=%v %s\n", s.CaseID, status, s.Searches, s.Citations, s.Error)
 			})
 			agentSummary := eval.SummarizeAgent(agentScores)
-			report += fmt.Sprintf("### Agent (`%s`, effort `%s`, %d questions)\n\n%s\n", cfg.Model, cfg.Effort, len(cases), eval.AgentTable(agentSummary))
+			report += fmt.Sprintf("### Agent (%s `%s`, effort `%s`, %d questions)\n\n%s\n", cfg.Provider, cfg.Model, cfg.Effort, len(cases), eval.AgentTable(agentSummary))
 			results["agent"], results["agent_summary"] = agentScores, agentSummary
 		}
 	}

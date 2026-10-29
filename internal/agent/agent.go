@@ -1,6 +1,10 @@
-// Package agent runs the Claude tool-use loop behind the chat endpoint:
-// stream a turn, execute the requested catalog tools, feed results back,
-// repeat until Claude answers.
+// Package agent runs the tool-use loop behind the chat endpoint: stream a
+// model turn, execute the requested catalog tools, feed the results back,
+// repeat until the model answers.
+//
+// The loop is provider-neutral. Two backends implement the model side:
+// Claude through the Anthropic Go SDK (claude.go) and any OpenAI-compatible
+// Chat Completions API such as DeepSeek or OpenRouter (openai.go).
 package agent
 
 import (
@@ -15,31 +19,73 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/config"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/anthropics/anthropic-sdk-go/shared/constant"
+)
+
+// Providers.
+const (
+	ProviderAnthropic        = "anthropic"
+	ProviderDeepSeek         = "deepseek"
+	ProviderOpenRouter       = "openrouter"
+	ProviderOpenAICompatible = "openai-compatible"
 )
 
 // Config controls the model call. Every field has an env var (see FromEnv).
 type Config struct {
-	Model           string // AGENT_MODEL
-	Effort          string // AGENT_EFFORT: low | medium | high | xhigh | max
+	Provider string // LLM_PROVIDER; empty when no credentials are configured
+	Model    string // AGENT_MODEL (default depends on the provider)
+	BaseURL  string // LLM_BASE_URL, for OpenAI-compatible providers
+	APIKey   string `json:"-"` // DEEPSEEK_API_KEY / OPENROUTER_API_KEY / LLM_API_KEY; never logged
+
+	Effort    string // AGENT_EFFORT: Claude output_config.effort, DeepSeek reasoning_effort
+	Thinking  string // LLM_THINKING: enabled | disabled (DeepSeek thinking mode)
+	MaxTokens int64  // AGENT_MAX_TOKENS, per model response
+	MaxTurns  int    // AGENT_MAX_TURNS, tool-loop iterations per question
+
+	// Claude only.
 	ThinkingDisplay string // AGENT_THINKING_DISPLAY: updates | summarized | omitted
-	MaxTokens       int64  // AGENT_MAX_TOKENS, per model response
-	MaxTurns        int    // AGENT_MAX_TURNS, tool-loop iterations per question
 	Fallbacks       bool   // AGENT_FALLBACKS: server-side refusal fallbacks (default on)
 }
 
-// FromEnv reads the configuration, falling back to defaults.
+var providerDefaults = map[string]struct{ model, baseURL, keyEnv string }{
+	ProviderAnthropic:        {model: "claude-opus-5-5"},
+	ProviderDeepSeek:         {model: "deepseek-flash", baseURL: "https://api.deepseek.com", keyEnv: "DEEPSEEK_API_KEY"},
+	ProviderOpenRouter:       {model: "deepseek/deepseek-v4.1-flash", baseURL: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY"},
+	ProviderOpenAICompatible: {keyEnv: "LLM_API_KEY"},
+}
+
+// FromEnv reads the configuration. Without LLM_PROVIDER it picks the first
+// provider that has credentials: DeepSeek, OpenRouter, a generic
+// OpenAI-compatible endpoint, then Anthropic.
 func FromEnv() Config {
 	cfg := Config{
-		Model:           envOr("AGENT_MODEL", "claude-opus-5-5"),
+		Provider:        strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER"))),
 		Effort:          envOr("AGENT_EFFORT", "medium"),
+		Thinking:        envOr("LLM_THINKING", "enabled"),
 		ThinkingDisplay: envOr("AGENT_THINKING_DISPLAY", "updates"),
 		MaxTokens:       16000,
 		MaxTurns:        8,
 		Fallbacks:       os.Getenv("AGENT_FALLBACKS") != "false",
+	}
+	if cfg.Provider == "" {
+		switch {
+		case os.Getenv("DEEPSEEK_API_KEY") != "":
+			cfg.Provider = ProviderDeepSeek
+		case os.Getenv("OPENROUTER_API_KEY") != "":
+			cfg.Provider = ProviderOpenRouter
+		case os.Getenv("LLM_API_KEY") != "" && os.Getenv("LLM_BASE_URL") != "":
+			cfg.Provider = ProviderOpenAICompatible
+		case CredentialsConfigured():
+			cfg.Provider = ProviderAnthropic
+		}
+	}
+	if d, ok := providerDefaults[cfg.Provider]; ok {
+		cfg.Model = envOr("AGENT_MODEL", d.model)
+		cfg.BaseURL = strings.TrimRight(envOr("LLM_BASE_URL", d.baseURL), "/")
+		if d.keyEnv != "" {
+			cfg.APIKey = envOr(d.keyEnv, os.Getenv("LLM_API_KEY"))
+		}
 	}
 	if n, err := strconv.ParseInt(os.Getenv("AGENT_MAX_TOKENS"), 10, 64); err == nil && n > 0 {
 		cfg.MaxTokens = n
@@ -48,6 +94,37 @@ func FromEnv() Config {
 		cfg.MaxTurns = n
 	}
 	return cfg
+}
+
+// Validate reports configuration that cannot work.
+func (c Config) Validate() error {
+	switch c.Provider {
+	case "":
+		return errors.New("agent: no LLM credentials (set DEEPSEEK_API_KEY, OPENROUTER_API_KEY, LLM_API_KEY + LLM_BASE_URL, or ANTHROPIC_API_KEY)")
+	case ProviderAnthropic:
+		return nil
+	case ProviderDeepSeek, ProviderOpenRouter, ProviderOpenAICompatible:
+		if c.APIKey == "" || c.BaseURL == "" || c.Model == "" {
+			return fmt.Errorf("agent: provider %s needs an API key, a base URL and a model", c.Provider)
+		}
+		return nil
+	default:
+		return fmt.Errorf("agent: unknown LLM_PROVIDER %q", c.Provider)
+	}
+}
+
+// CredentialsConfigured reports whether the Anthropic SDK's default
+// credential chain has something to use: ANTHROPIC_API_KEY,
+// ANTHROPIC_AUTH_TOKEN, a profile from `ant auth login`, or workload
+// identity federation.
+func CredentialsConfigured() bool {
+	for _, key := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID"} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	_, err := config.LoadConfig()
+	return err == nil
 }
 
 // Message is one turn of the chat history sent by the client.
@@ -97,6 +174,7 @@ type Usage struct {
 type Result struct {
 	Answer     string     `json:"answer"`
 	StopReason string     `json:"stop_reason"`
+	Provider   string     `json:"provider"`
 	Model      string     `json:"model"`
 	Turns      int        `json:"turns"`
 	ToolCalls  []ToolCall `json:"tool_calls"`
@@ -105,161 +183,87 @@ type Result struct {
 	DurationMS int64      `json:"duration_ms"`
 }
 
-// ErrRefused is returned when Claude (and every fallback model) declined.
+// ErrRefused is returned when the model (and any fallback model) declined.
 var ErrRefused = errors.New("agent: the request was declined")
 
-// Agent answers catalog questions with Claude and the catalog tools.
+// Agent answers catalog questions with an LLM and the catalog tools.
 type Agent struct {
-	client anthropic.Client
-	cfg    Config
-	tools  *Tools
+	cfg   Config
+	tools *Tools
+	llm   backend
 }
 
-// CredentialsConfigured reports whether the SDK's default credential chain
-// has something to use: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, a profile
-// from `ant auth login`, or workload identity federation.
-func CredentialsConfigured() bool {
-	for _, key := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID"} {
-		if os.Getenv(key) != "" {
-			return true
-		}
-	}
-	_, err := config.LoadConfig()
-	return err == nil
-}
-
-// New builds an agent. The SDK resolves credentials itself (see
-// CredentialsConfigured).
+// New builds an agent for cfg.Provider (Anthropic when empty). opts are
+// passed to the Anthropic client and ignored by other providers.
 func New(cfg Config, tools *Tools, opts ...option.RequestOption) *Agent {
-	return &Agent{client: anthropic.NewClient(opts...), cfg: cfg, tools: tools}
+	a := &Agent{cfg: cfg, tools: tools}
+	switch cfg.Provider {
+	case ProviderDeepSeek, ProviderOpenRouter, ProviderOpenAICompatible:
+		a.llm = newOpenAIBackend(cfg, tools.Specs())
+	default:
+		a.cfg.Provider = ProviderAnthropic
+		a.llm = newClaudeBackend(cfg, tools.Specs(), opts...)
+	}
+	return a
 }
 
 // Config returns the agent's configuration.
 func (a *Agent) Config() Config { return a.cfg }
 
-func (a *Agent) params(messages []anthropic.BetaMessageParam) anthropic.BetaMessageNewParams {
-	p := anthropic.BetaMessageNewParams{
-		Model:     anthropic.Model(a.cfg.Model),
-		MaxTokens: a.cfg.MaxTokens,
-		System:    []anthropic.BetaTextBlockParam{{Text: systemPrompt}},
-		Messages:  messages,
-		Tools:     a.tools.Definitions(),
-		Thinking: anthropic.BetaThinkingConfigParamUnion{OfAdaptive: &anthropic.BetaThinkingConfigAdaptiveParam{
-			Display: anthropic.BetaThinkingConfigAdaptiveDisplay(a.cfg.ThinkingDisplay),
-		}},
-		OutputConfig: anthropic.BetaOutputConfigParam{Effort: anthropic.BetaOutputConfigEffort(a.cfg.Effort)},
-		// Automatic caching: each loop iteration re-sends the growing history.
-		CacheControl: anthropic.NewBetaCacheControlEphemeralParam(),
-	}
-	if a.cfg.ThinkingDisplay == string(anthropic.BetaThinkingConfigAdaptiveDisplayUpdates) {
-		p.Betas = append(p.Betas, anthropic.AnthropicBetaThinkingDisplayUpdates2026_08_18)
-	}
-	if a.cfg.Fallbacks {
-		// On a safety-classifier decline the API re-runs the request on the
-		// model Anthropic recommends for that refusal category.
-		p.Fallbacks = anthropic.BetaFallbacksParamUnion{OfDefault: constant.ValueOf[constant.Default]()}
-		p.Betas = append(p.Betas, anthropic.AnthropicBetaServerSideFallback2026_07_01)
-	}
-	return p
-}
-
 // Run answers the last user message of history, streaming events to emit.
 // emit is called from a single goroutine.
 func (a *Agent) Run(ctx context.Context, history []Message, emit func(Event)) (*Result, error) {
 	start := time.Now()
-	messages, err := toParams(history)
-	if err != nil {
+	if err := validateHistory(history); err != nil {
 		return nil, err
 	}
-	res := &Result{Model: a.cfg.Model}
+	conv := a.llm.start(history)
+	res := &Result{Provider: a.cfg.Provider, Model: a.cfg.Model}
 	defer func() { res.DurationMS = time.Since(start).Milliseconds() }()
 
 	for res.Turns < a.cfg.MaxTurns {
 		res.Turns++
-		msg, err := a.streamTurn(ctx, messages, emit)
+		t, err := conv.next(ctx, emit)
 		if err != nil {
 			return res, err
 		}
-		messages = append(messages, msg.ToParam())
-		res.Model = string(msg.Model)
-		res.StopReason = string(msg.StopReason)
-		res.Usage.InputTokens += msg.Usage.InputTokens
-		res.Usage.OutputTokens += msg.Usage.OutputTokens
-		res.Usage.CacheReadTokens += msg.Usage.CacheReadInputTokens
+		if t.model != "" {
+			res.Model = t.model
+		}
+		res.StopReason = string(t.stop)
+		res.Usage.InputTokens += t.usage.InputTokens
+		res.Usage.OutputTokens += t.usage.OutputTokens
+		res.Usage.CacheReadTokens += t.usage.CacheReadTokens
 
-		switch msg.StopReason {
-		case anthropic.BetaStopReasonRefusal:
-			// A refusal can cut a tool_use block off mid-input: never run it.
-			emit(Event{Type: "refusal", Text: refusalText(msg)})
+		switch t.stop {
+		case stopRefusal:
+			// A refusal can cut a tool call off mid-input: never run it.
+			emit(Event{Type: "refusal", Text: t.refusal})
 			return res, ErrRefused
-		case anthropic.BetaStopReasonToolUse:
-			messages = append(messages, a.runTools(ctx, msg, res, emit))
+		case stopToolUse:
+			conv.addToolResults(a.runTools(ctx, t.calls, res, emit))
 			continue
-		case anthropic.BetaStopReasonPauseTurn:
+		case stopPause:
 			continue
-		case anthropic.BetaStopReasonMaxTokens:
-			if hasToolUse(msg) {
+		case stopMaxTokens:
+			if len(t.calls) > 0 {
 				// The tool input is probably truncated; don't execute it.
 				return res, fmt.Errorf("agent: response hit max_tokens (%d) inside a tool call", a.cfg.MaxTokens)
 			}
 		}
-		res.Answer = answerText(msg)
+		res.Answer = strings.TrimSpace(t.text)
 		res.Citations = a.citations(ctx, res.Answer)
 		return res, nil
 	}
 	return res, fmt.Errorf("agent: no answer after %d steps", a.cfg.MaxTurns)
 }
 
-// streamTurn streams one model response, forwarding text and thinking
-// deltas, and returns the accumulated message.
-func (a *Agent) streamTurn(ctx context.Context, messages []anthropic.BetaMessageParam, emit func(Event)) (anthropic.BetaMessage, error) {
-	stream := a.client.Beta.Messages.NewStreaming(ctx, a.params(messages))
-	defer stream.Close()
-
-	var msg anthropic.BetaMessage
-	for stream.Next() {
-		event := stream.Current()
-		if err := msg.Accumulate(event); err != nil {
-			return msg, fmt.Errorf("agent: accumulate stream: %w", err)
-		}
-		switch e := event.AsAny().(type) {
-		case anthropic.BetaRawContentBlockStartEvent:
-			if fb, ok := e.ContentBlock.AsAny().(anthropic.BetaFallbackBlock); ok {
-				emit(Event{Type: "fallback", Text: fmt.Sprintf("%s declined; %s continued", fb.From.Model, fb.To.Model)})
-			}
-		case anthropic.BetaRawContentBlockDeltaEvent:
-			switch d := e.Delta.AsAny().(type) {
-			case anthropic.BetaTextDelta:
-				emit(Event{Type: "text", Text: d.Text})
-			case anthropic.BetaThinkingDelta:
-				if d.Thinking != "" {
-					emit(Event{Type: "thinking", Text: d.Thinking})
-				}
-			}
-		}
+// runTools executes the requested tool calls concurrently and returns their
+// results in the original order.
+func (a *Agent) runTools(ctx context.Context, calls []pendingCall, res *Result, emit func(Event)) []toolResult {
+	for _, c := range calls {
+		emit(Event{Type: "tool_call", ID: c.id, Name: c.name, Input: displayInput(c.input)})
 	}
-	if err := stream.Err(); err != nil {
-		return msg, fmt.Errorf("agent: %w", err)
-	}
-	return msg, nil
-}
-
-// runTools executes every tool_use block of msg concurrently and returns the
-// results as a single user message, in the original order.
-func (a *Agent) runTools(ctx context.Context, msg anthropic.BetaMessage, res *Result, emit func(Event)) anthropic.BetaMessageParam {
-	type call struct {
-		id, name string
-		input    json.RawMessage
-	}
-	var calls []call
-	for _, block := range msg.Content {
-		if tu, ok := block.AsAny().(anthropic.BetaToolUseBlock); ok {
-			input := json.RawMessage(tu.JSON.Input.Raw())
-			calls = append(calls, call{tu.ID, tu.Name, input})
-			emit(Event{Type: "tool_call", ID: tu.ID, Name: tu.Name, Input: input})
-		}
-	}
-
 	outcomes := make([]ToolOutcome, len(calls))
 	var wg sync.WaitGroup
 	for i, c := range calls {
@@ -273,14 +277,27 @@ func (a *Agent) runTools(ctx context.Context, msg anthropic.BetaMessage, res *Re
 	}
 	wg.Wait()
 
-	results := make([]anthropic.BetaContentBlockParamUnion, len(calls))
+	results := make([]toolResult, len(calls))
 	for i, c := range calls {
 		o := outcomes[i]
 		emit(Event{Type: "tool_result", ID: c.id, Name: c.name, Summary: o.Summary, Datasets: o.Datasets, IsError: o.IsError})
-		res.ToolCalls = append(res.ToolCalls, ToolCall{Name: c.name, Input: c.input, Datasets: o.Datasets, IsError: o.IsError})
-		results[i] = anthropic.NewBetaToolResultBlock(c.id, o.Content, o.IsError)
+		res.ToolCalls = append(res.ToolCalls, ToolCall{Name: c.name, Input: displayInput(c.input), Datasets: o.Datasets, IsError: o.IsError})
+		results[i] = toolResult{id: c.id, content: o.Content, isError: o.IsError}
 	}
-	return anthropic.NewBetaUserMessage(results...)
+	return results
+}
+
+// displayInput keeps invalid JSON from breaking the event stream: the raw
+// text is wrapped in a JSON string.
+func displayInput(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage("{}")
+	}
+	if json.Valid(raw) {
+		return raw
+	}
+	quoted, _ := json.Marshal(string(raw))
+	return quoted
 }
 
 var datasetLink = regexp.MustCompile(`data\.egov\.kz/datasets/view\?index=([A-Za-z0-9_\-]+)`)
@@ -317,59 +334,19 @@ func (a *Agent) citations(ctx context.Context, answer string) []Citation {
 	return out
 }
 
-func toParams(history []Message) ([]anthropic.BetaMessageParam, error) {
+func validateHistory(history []Message) error {
 	if len(history) == 0 || history[len(history)-1].Role != "user" {
-		return nil, errors.New("agent: history must end with a user message")
+		return errors.New("agent: history must end with a user message")
 	}
-	out := make([]anthropic.BetaMessageParam, 0, len(history))
 	for i, m := range history {
-		text := strings.TrimSpace(m.Content)
-		if text == "" {
-			return nil, fmt.Errorf("agent: message %d is empty", i)
+		if strings.TrimSpace(m.Content) == "" {
+			return fmt.Errorf("agent: message %d is empty", i)
 		}
-		switch m.Role {
-		case "user":
-			out = append(out, anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(text)))
-		case "assistant":
-			out = append(out, anthropic.BetaMessageParam{
-				Role:    anthropic.BetaMessageParamRoleAssistant,
-				Content: []anthropic.BetaContentBlockParamUnion{anthropic.NewBetaTextBlock(text)},
-			})
-		default:
-			return nil, fmt.Errorf("agent: message %d has unknown role %q", i, m.Role)
+		if m.Role != "user" && m.Role != "assistant" {
+			return fmt.Errorf("agent: message %d has unknown role %q", i, m.Role)
 		}
 	}
-	return out, nil
-}
-
-func answerText(msg anthropic.BetaMessage) string {
-	var b strings.Builder
-	for _, block := range msg.Content {
-		if t, ok := block.AsAny().(anthropic.BetaTextBlock); ok {
-			b.WriteString(t.Text)
-		}
-	}
-	return strings.TrimSpace(b.String())
-}
-
-func hasToolUse(msg anthropic.BetaMessage) bool {
-	for _, block := range msg.Content {
-		if _, ok := block.AsAny().(anthropic.BetaToolUseBlock); ok {
-			return true
-		}
-	}
-	return false
-}
-
-func refusalText(msg anthropic.BetaMessage) string {
-	text := "The model declined to answer this request."
-	if c := string(msg.StopDetails.Category); c != "" {
-		text += " Category: " + c + "."
-	}
-	if msg.StopDetails.Explanation != "" {
-		text += " " + msg.StopDetails.Explanation
-	}
-	return text
+	return nil
 }
 
 func envOr(key, fallback string) string {

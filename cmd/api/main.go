@@ -5,9 +5,12 @@
 //
 //	DATABASE_URL        Postgres connection string (required)
 //	PORT                listen port (default 8080)
-//	ANTHROPIC_API_KEY   enables the AI agent (an `ant auth login` profile works too);
-//	                    without credentials the app runs search-only
-//	AGENT_MODEL         default claude-opus-5-5 (see internal/agent for the rest)
+//	DEEPSEEK_API_KEY    enables the AI agent on DeepSeek (deepseek-flash by default)
+//	OPENROUTER_API_KEY  ...or on OpenRouter; LLM_API_KEY + LLM_BASE_URL for any
+//	                    OpenAI-compatible API; ANTHROPIC_API_KEY (or an `ant auth
+//	                    login` profile) for Claude. LLM_PROVIDER picks explicitly.
+//	                    Without credentials the app runs search-only.
+//	AGENT_MODEL         overrides the provider's default model (see internal/agent)
 //	EGOV_API_KEY        enables the preview_rows tool (data.egov.kz API key)
 //	WEB_DIR             serve the built frontend from this directory
 //	AUTO_SEED_FILE      seed this snapshot on start when the catalog is empty
@@ -79,12 +82,15 @@ func run(logger *slog.Logger) error {
 		ChatPerMinute: envInt("CHAT_RATE_PER_MIN", 10),
 		ChatPerDay:    envInt("CHAT_DAILY_LIMIT", 0),
 	}
-	if agent.CredentialsConfigured() {
-		cfg := agent.FromEnv()
+	cfg := agent.FromEnv()
+	switch err := cfg.Validate(); {
+	case err == nil:
 		srv.Agent = agent.New(cfg, tools)
-		logger.Info("agent enabled", "model", cfg.Model, "effort", cfg.Effort, "fallbacks", cfg.Fallbacks, "preview_rows", srv.PreviewRows)
-	} else {
-		logger.Warn("no Anthropic credentials (ANTHROPIC_API_KEY or `ant auth login`): running in search-only mode")
+		logger.Info("agent enabled", "provider", cfg.Provider, "model", cfg.Model, "effort", cfg.Effort, "preview_rows", srv.PreviewRows)
+	case cfg.Provider == "":
+		logger.Warn("running in search-only mode", "reason", err.Error())
+	default:
+		return err // LLM_PROVIDER is set but unusable: fail loudly
 	}
 
 	httpServer := &http.Server{

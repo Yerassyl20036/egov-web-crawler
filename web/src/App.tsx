@@ -115,7 +115,7 @@ export default function App() {
             </p>
             {!agentEnabled && (
               <div className="notice">
-                The AI agent is off on this server (no Anthropic API key), so questions run as a plain full-text search.
+                The AI agent is off on this server (no LLM API key), so questions run as a plain full-text search.
               </div>
             )}
             <div className="examples">

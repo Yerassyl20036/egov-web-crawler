@@ -102,8 +102,8 @@ func TestExecuteValidatesInput(t *testing.T) {
 }
 
 func TestDefinitionsHidePreviewWithoutKey(t *testing.T) {
-	without := (&Tools{Catalog: newFakeCatalog()}).Definitions()
-	with := (&Tools{Catalog: newFakeCatalog(), Rows: nopRows{}}).Definitions()
+	without := (&Tools{Catalog: newFakeCatalog()}).Specs()
+	with := (&Tools{Catalog: newFakeCatalog(), Rows: nopRows{}}).Specs()
 	if len(with) != len(without)+1 {
 		t.Fatalf("preview_rows should only be offered with a row previewer")
 	}
@@ -281,7 +281,7 @@ func TestHistoryValidation(t *testing.T) {
 		{{Role: "user", Content: "  "}},
 		{{Role: "system", Content: "x"}, {Role: "user", Content: "q"}},
 	} {
-		if _, err := toParams(h); err == nil {
+		if err := validateHistory(h); err == nil {
 			t.Errorf("history %+v should be rejected", h)
 		}
 	}

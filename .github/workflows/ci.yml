@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       agent_eval:
-        description: "Also run the end-to-end agent eval (uses the ANTHROPIC_API_KEY secret and costs tokens)"
+        description: "Also run the end-to-end agent eval (uses the DEEPSEEK_API_KEY or ANTHROPIC_API_KEY secret; costs tokens)"
         type: boolean
         default: false
 
@@ -84,6 +84,7 @@ jobs:
       - name: Agent eval
         if: github.event_name == 'workflow_dispatch' && inputs.agent_eval
         env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: go run ./cmd/eval -agent -summary "$GITHUB_STEP_SUMMARY" -out eval-results-agent.json
       - uses: actions/upload-artifact@v4

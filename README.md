@@ -21,7 +21,7 @@ data.egov.kz publishes about **4,000 datasets**: hospitals, schools, budgets, la
 
 | | |
 |---|---|
-| **AI / agents** | Tool-using agent on Claude (Anthropic Go SDK): streaming, adaptive thinking, server-side refusal fallbacks, validated tool inputs, citation verification |
+| **AI / agents** | Provider-agnostic tool-use loop: DeepSeek (or any OpenAI-compatible API, e.g. OpenRouter) over streaming HTTP/SSE, or Claude via the Anthropic Go SDK. Validated tool inputs, parallel tool calls, citation verification |
 | **Retrieval (RAG)** | Postgres full-text search with Russian stemming + `pg_trgm` fuzzy matching, coverage-based ranking for multi-region duplicates |
 | **Evaluation** | 39-question multilingual eval set with dev/holdout split; retrieval metrics run in CI without an API key, agent-level eval on demand |
 | **Backend** | Go 1.26: HTTP API with Server-Sent Events, crawler with worker pool and retries, embedded SQL migrations |
@@ -41,14 +41,14 @@ flowchart LR
         TOOLS[Tools:<br/>search_datasets<br/>get_dataset<br/>list_categories<br/>preview_rows*]
     end
     PG[(Postgres 16<br/>FTS russian/simple/english<br/>+ pg_trgm)]
-    CLAUDE[[Claude API<br/>claude-opus-5-5]]
+    LLM[[LLM API<br/>DeepSeek deepseek-flash<br/>or Claude / OpenRouter]]
     PORTAL[(data.egov.kz)]
     CRAWLER[cmd/crawler] -->|listing JSON + passports| PORTAL
     CRAWLER -->|upsert| PG
     SEED[cmd/seed] -->|snapshot| PG
     UI -->|question| HTTP
     HTTP --> AGENT
-    AGENT <-->|streamed turns| CLAUDE
+    AGENT <-->|streamed turns| LLM
     AGENT --> TOOLS
     TOOLS --> PG
     TOOLS -.->|*with EGOV_API_KEY| PORTAL
@@ -58,9 +58,9 @@ flowchart LR
 ### How one question is answered
 
 1. The UI posts the conversation to `POST /api/chat` and reads the Server-Sent Events stream.
-2. The agent streams a turn from Claude. The system prompt tells it to **search with Russian keywords even when the user writes in English or Kazakh**, to retry with synonyms or filters when results are weak, and to link only datasets a tool returned.
-3. When Claude calls tools, the server validates each input (inputs stream eagerly, so nothing is trusted), runs the calls in parallel against Postgres and sends the results back. Every call and result is also pushed to the UI as a step.
-4. When Claude answers, every `data.egov.kz/datasets/view?index=…` link is resolved against the catalog. Links that don't exist are marked as unverified in the UI.
+2. The agent streams a turn from the model. The system prompt tells it to **search with Russian keywords even when the user writes in English or Kazakh**, to retry with synonyms or filters when results are weak, and to link only datasets a tool returned.
+3. When the model calls tools, the server validates each input (it never trusts the model's JSON), runs the calls in parallel against Postgres and sends the results back. Every call and result is also pushed to the UI as a step.
+4. When the model answers, every `data.egov.kz/datasets/view?index=…` link is resolved against the catalog. Links that don't exist are marked as unverified in the UI.
 
 | Tool | What it does |
 |---|---|
@@ -69,7 +69,18 @@ flowchart LR
 | `list_categories()` | The 19 portal categories with dataset counts, for filtering |
 | `preview_rows(api_uri, limit?)` | Sample rows from the official data API. Only offered when `EGOV_API_KEY` is set |
 
-**Model settings** (all overridable by env var): `claude-opus-5-5`, adaptive thinking with progress updates shown as steps, effort `medium`, up to 8 tool-loop steps per question. **Server-side refusal fallbacks are on by default** (`fallbacks: "default"`): if a safety classifier declines a request, the API retries it on the model Anthropic recommends for that refusal category. Set `AGENT_FALLBACKS=false` to turn this off.
+### Models
+
+The loop in `internal/agent` is the same for every provider; only the backend that streams one model turn differs. The first provider with a key wins (or set `LLM_PROVIDER`):
+
+| Provider | Key | Default model | Notes |
+|---|---|---|---|
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-flash` (V4.1 Flash) | Thinking mode on, `reasoning_effort` from `AGENT_EFFORT`. Its reasoning is shown as steps and passed back on tool turns, as DeepSeek requires. Pay-as-you-go, about $0.15–0.30 per million input tokens |
+| OpenRouter | `OPENROUTER_API_KEY` | `deepseek/deepseek-v4.1-flash` | Any OpenRouter model via `AGENT_MODEL`; `openrouter/free` routes to free models (rate-limited) |
+| Any OpenAI-compatible API | `LLM_API_KEY` + `LLM_BASE_URL` + `AGENT_MODEL` | | `LLM_PROVIDER=openai-compatible` |
+| Claude | `ANTHROPIC_API_KEY` or an `ant auth login` profile | `claude-opus-5-5` | Anthropic Go SDK: adaptive thinking, effort, eager tool-input streaming. Server-side refusal fallbacks are on by default; `AGENT_FALLBACKS=false` turns them off |
+
+Up to 8 tool-loop steps per question. Tool definitions are written once (`Tools.Specs`) and converted to each provider's format.
 
 ### Search ranking
 
@@ -108,21 +119,21 @@ What this shows:
 `go run ./cmd/eval -agent` asks the agent every question and records whether the answer **cites an expected dataset**, whether any tool call **retrieved** one, how many links were **unverified** (not in the catalog), plus tool calls, latency and tokens.
 
 <!-- AGENT_EVAL_RESULTS -->
-_Agent results will be added after the first run with an API key (`go run ./cmd/eval -agent`). In CI it runs via **Actions → CI → Run workflow → agent_eval**, using the `ANTHROPIC_API_KEY` repository secret._
+_Agent results will be added after the first run with an API key (`go run ./cmd/eval -agent`). In CI it runs via **Actions → CI → Run workflow → agent_eval**, using the `DEEPSEEK_API_KEY` (or `ANTHROPIC_API_KEY`) repository secret._
 
 ## Run it
 
 ### With Docker (recommended)
 
 ```bash
-cp .env.example .env        # optionally add ANTHROPIC_API_KEY
+cp .env.example .env        # add DEEPSEEK_API_KEY (or another provider's key) for the agent
 docker compose up --build
 ```
 
 - Chat UI: <http://localhost:3000>
 - API: <http://localhost:8080/api/health>
 
-Postgres starts, a one-shot `seed` container loads the bundled snapshot ([`data/datasets.jsonl.gz`](data/datasets.jsonl.gz), 3,947 datasets crawled on 2026-10-29), then the API starts. **Without `ANTHROPIC_API_KEY`** the app runs in search-only mode: the UI says so and questions go straight to full-text search.
+Postgres starts, a one-shot `seed` container loads the bundled snapshot ([`data/datasets.jsonl.gz`](data/datasets.jsonl.gz), 3,947 datasets crawled on 2026-10-29), then the API starts. **Without an LLM key** the app runs in search-only mode: the UI says so and questions go straight to full-text search.
 
 ### Without Docker
 
@@ -131,7 +142,7 @@ Requires Go 1.26+, Node 22.12+ and a Postgres 16 database.
 ```bash
 export DATABASE_URL="postgres://egov:egov@localhost:5432/egov?sslmode=disable"
 go run ./cmd/seed                       # load the snapshot
-ANTHROPIC_API_KEY=sk-ant-... go run ./cmd/api   # :8080
+DEEPSEEK_API_KEY=sk-... go run ./cmd/api   # :8080
 cd web && npm install && npm run dev    # :5173, proxies /api to :8080
 ```
 
@@ -149,7 +160,7 @@ DATABASE_URL=... go run ./cmd/crawler -passports      # also scrape each HTML pa
 go test ./...                                         # unit tests, incl. the agent loop against a fake Messages API
 TEST_DATABASE_URL=postgres://... go test ./internal/store   # search integration test
 DATABASE_URL=... go run ./cmd/eval -v                 # retrieval eval, no API key needed
-DATABASE_URL=... ANTHROPIC_API_KEY=... go run ./cmd/eval -agent   # end-to-end agent eval (costs tokens)
+DATABASE_URL=... DEEPSEEK_API_KEY=... go run ./cmd/eval -agent   # end-to-end agent eval (costs tokens)
 ```
 
 ## Configuration
@@ -157,11 +168,14 @@ DATABASE_URL=... ANTHROPIC_API_KEY=... go run ./cmd/eval -agent   # end-to-end a
 | Variable | Default | |
 |---|---|---|
 | `DATABASE_URL` | (required) | Postgres connection string |
-| `ANTHROPIC_API_KEY` | | Enables the agent. An `ant auth login` profile (or `ANTHROPIC_AUTH_TOKEN`) works too; with no credentials the app runs search-only |
-| `AGENT_MODEL` | `claude-opus-5-5` | Claude model id |
-| `AGENT_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max` |
-| `AGENT_THINKING_DISPLAY` | `updates` | `updates` (progress notes shown as steps), `summarized` or `omitted` |
-| `AGENT_FALLBACKS` | `true` | Server-side refusal fallbacks |
+| `DEEPSEEK_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` | | LLM credentials (see [Models](#models)); with none, the app runs search-only |
+| `LLM_PROVIDER` | auto | `deepseek`, `openrouter`, `openai-compatible` or `anthropic` |
+| `LLM_BASE_URL` / `LLM_API_KEY` | | Endpoint and key for `openai-compatible` (the base URL also overrides a preset's) |
+| `AGENT_MODEL` | per provider | Model id |
+| `AGENT_EFFORT` | `medium` | Claude `effort` / DeepSeek `reasoning_effort` |
+| `LLM_THINKING` | `enabled` | DeepSeek thinking mode (`enabled` / `disabled`) |
+| `AGENT_THINKING_DISPLAY` | `updates` | Claude: `updates` (progress notes shown as steps), `summarized` or `omitted` |
+| `AGENT_FALLBACKS` | `true` | Claude: server-side refusal fallbacks |
 | `AGENT_MAX_TOKENS` / `AGENT_MAX_TURNS` | `16000` / `8` | Per-response output cap / tool-loop steps per question |
 | `EGOV_API_KEY` | | data.egov.kz API key; enables `preview_rows` |
 | `CHAT_RATE_PER_MIN` | `10` | Chat requests per client IP per minute |
@@ -178,7 +192,8 @@ cmd/
   seed/       loads a snapshot or the legacy CSV into Postgres
   eval/       retrieval + agent evals, markdown report for CI
 internal/
-  agent/      Claude tool-use loop, tool definitions, system prompt
+  agent/      provider-neutral tool-use loop, tools, system prompt;
+              backends: openai.go (DeepSeek, OpenRouter, ...) and claude.go
   api/        handlers, SSE streaming, rate limiting
   catalog/    dataset model, snapshot/CSV readers
   egov/       portal client: listing JSON, passport HTML parser, data API
@@ -192,6 +207,7 @@ data/         datasets.jsonl.gz snapshot; datasets_export.csv (original Mongo ex
 ## Design notes and trade-offs
 
 - **Postgres FTS instead of a vector database.** The catalog is small (4k rows) and keyword-heavy (place names, agency names, document numbers like "№382"). Lexical search with stemming plus an LLM that rewrites the query gives precise, explainable results and needs no embedding pipeline. Embeddings would be the next step for vaguer questions ("data about quality of life").
+- **One loop, swappable models.** Search quality comes from the retrieval layer and the prompt, not from a particular model, so a cheap model (DeepSeek Flash) is enough for query rewriting and answer writing. The agent eval is how to compare models on the same questions.
 - **The agent searches; it doesn't load the catalog into context.** Tool results are compact (title, agency, cadence, 300-character description) so a question costs a few thousand tokens, not the whole catalog.
 - **Stateless chat.** The client resends the visible conversation (question and answer text) with each question. Earlier tool results are not replayed. That keeps the server stateless and the history append-only, and the cited links in earlier answers keep enough context for follow-ups.
 - **Trust boundaries.** Tool inputs are decoded strictly (unknown fields rejected, `api_uri` pattern-checked). Tools never run on a refused or truncated turn. Answer links are verified against the catalog, and the data API key is redacted from logs.

@@ -35,9 +35,16 @@ services:
     image: ask-data-egov:local
     environment:
       DATABASE_URL: postgres://egov:${POSTGRES_PASSWORD:-egov}@db:5432/egov?sslmode=disable
+      # LLM: the first provider with a key wins (see .env.example)
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AGENT_MODEL: ${AGENT_MODEL:-claude-opus-5-5}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      AGENT_MODEL: ${AGENT_MODEL:-}
       AGENT_EFFORT: ${AGENT_EFFORT:-medium}
+      LLM_THINKING: ${LLM_THINKING:-enabled}
       AGENT_FALLBACKS: ${AGENT_FALLBACKS:-true}
       EGOV_API_KEY: ${EGOV_API_KEY:-}
       CHAT_RATE_PER_MIN: ${CHAT_RATE_PER_MIN:-10}
