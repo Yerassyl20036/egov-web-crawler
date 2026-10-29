@@ -1,0 +1,465 @@
+{
+  "date": "2026-10-29",
+  "provider": "openrouter",
+  "model": "nvidia/nemotron-3.5-super-vl:free",
+  "note": "Stopped after 20 questions by OpenRouter's free-models-per-day limit; the 3 skipped questions are listed with skipped=true.",
+  "agent_summary": [
+    {
+      "group": "all",
+      "n": 20,
+      "cited_expected_rate": 1,
+      "retrieved_expected_rate": 1,
+      "unverified_citations": 0,
+      "errors": 0,
+      "skipped_rate_limited": 3,
+      "avg_tool_calls": 1.75,
+      "avg_seconds": 18.6314,
+      "avg_input_tokens": 8608.55,
+      "avg_output_tokens": 673.45
+    },
+    {
+      "group": "en",
+      "n": 9,
+      "cited_expected_rate": 1,
+      "retrieved_expected_rate": 1,
+      "unverified_citations": 0,
+      "errors": 0,
+      "skipped_rate_limited": 2,
+      "avg_tool_calls": 1.5555555555555556,
+      "avg_seconds": 12.933555555555555,
+      "avg_input_tokens": 6011.222222222223,
+      "avg_output_tokens": 650.8888888888889
+    },
+    {
+      "group": "kk",
+      "n": 5,
+      "cited_expected_rate": 1,
+      "retrieved_expected_rate": 1,
+      "unverified_citations": 0,
+      "errors": 0,
+      "skipped_rate_limited": 0,
+      "avg_tool_calls": 2.8,
+      "avg_seconds": 26.381,
+      "avg_input_tokens": 17928,
+      "avg_output_tokens": 898.4
+    },
+    {
+      "group": "ru",
+      "n": 6,
+      "cited_expected_rate": 1,
+      "retrieved_expected_rate": 1,
+      "unverified_citations": 0,
+      "errors": 0,
+      "skipped_rate_limited": 1,
+      "avg_tool_calls": 1.1666666666666667,
+      "avg_seconds": 20.720166666666668,
+      "avg_input_tokens": 4738.333333333333,
+      "avg_output_tokens": 519.8333333333334
+    }
+  ],
+  "agent": [
+    {
+      "case_id": "air-quality",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "atmosferalyk_aua_lastanuy_moni1",
+        "monitoring_zagryazneniya_atmos2"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "загрязнение воздуха мониторинг"
+      ],
+      "input_tokens": 4133,
+      "output_tokens": 853,
+      "duration_ms": 23311
+    },
+    {
+      "case_id": "kindergartens",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "onirler_oblystar_kalalar_boi6"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "детские сады реестр по регионам"
+      ],
+      "input_tokens": 4025,
+      "output_tokens": 542,
+      "duration_ms": 6713
+    },
+    {
+      "case_id": "population-sex-age",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "zhynysy_zhane_zhekelegen_zhas_",
+        "population_of_the_republic_of_",
+        "kazakstan_respublikasyndagy_184"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "численность населения Казахстан по полу возрастным группам"
+      ],
+      "input_tokens": 4749,
+      "output_tokens": 916,
+      "duration_ms": 8976
+    },
+    {
+      "case_id": "population-ethnic",
+      "lang": "kk",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "kazakstan_respublikasy_halkyny2"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 9,
+      "searches": [
+        "население Казахстана по национальностям",
+        "национальный состав населения Казахстана",
+        "наловас бүлiгi өздерінің саны",
+        "национальный состав населения по областям",
+        "населения по национальностям перепись",
+        "собрание ассамблеи народа казахстана этнокультурных объединений",
+        "этнос национальность численность"
+      ],
+      "input_tokens": 70031,
+      "output_tokens": 1455,
+      "duration_ms": 75904
+    },
+    {
+      "case_id": "subsoil-astana",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "216_register_of_issued_subsur"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "лицензии недропользования Астана"
+      ],
+      "input_tokens": 4132,
+      "output_tokens": 603,
+      "duration_ms": 7479
+    },
+    {
+      "case_id": "free-land-pavlodar",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "bos_zher_uchaskeleri1",
+        "kommerciyalyk_maksattarga_arna"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 2,
+      "searches": [
+        "свободные земельные участки Павлодарская область",
+        "земельные участки Павлодарская область"
+      ],
+      "input_tokens": 5916,
+      "output_tokens": 427,
+      "duration_ms": 28465
+    },
+    {
+      "case_id": "free-land-shymkent",
+      "lang": "kk",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "shymkent_kalasy_boiynsha_bos_z",
+        "kommerciyalyk_maksattar_ushin_2"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "земельные участки Шымкент"
+      ],
+      "input_tokens": 4054,
+      "output_tokens": 1052,
+      "duration_ms": 10186
+    },
+    {
+      "case_id": "tourist-routes-almaty",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "turistik_bagyttar1"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "туристические маршруты Алматы"
+      ],
+      "input_tokens": 3788,
+      "output_tokens": 307,
+      "duration_ms": 6291
+    },
+    {
+      "case_id": "road-repair-pavlodar",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "zholdardy_zhondeu_obektileri",
+        "zhol_salu_obektileri1"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "ремонт дорог Павлодарская область"
+      ],
+      "input_tokens": 4040,
+      "output_tokens": 469,
+      "duration_ms": 5546
+    },
+    {
+      "case_id": "road-length",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "road_index",
+        "kad_statdann11",
+        "opendata-api-uri790"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 2,
+      "searches": [
+        "протяженность автомобильных дорог",
+        "автомобильные дороги длина трассы"
+      ],
+      "input_tokens": 5699,
+      "output_tokens": 629,
+      "duration_ms": 7370
+    },
+    {
+      "case_id": "pension-recipients",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "okpvpp_mtszn",
+        "yntymakty_zeinetaky_alushylard3"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 2,
+      "searches": [
+        "получатели пенсий социальных пособий количество"
+      ],
+      "input_tokens": 7486,
+      "output_tokens": 909,
+      "duration_ms": 9185
+    },
+    {
+      "case_id": "pension-debtors",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "01072019_zhylgy_zhagdaiga_al1"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "задолженность обязательные пенсионные взносы агенты"
+      ],
+      "input_tokens": 4953,
+      "output_tokens": 509,
+      "duration_ms": 27177
+    },
+    {
+      "case_id": "unemployment-pavlodar",
+      "lang": "kk",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "halykty_zhumyspen_kamtu_ortaly1"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "безработица Павлодарская область статистика"
+      ],
+      "input_tokens": 4285,
+      "output_tokens": 693,
+      "duration_ms": 9254
+    },
+    {
+      "case_id": "unemployment-astana",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "nur-sultan_kalasy_akimdiginin"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 2,
+      "searches": [
+        "безработица Астана статистика"
+      ],
+      "input_tokens": 9122,
+      "output_tokens": 575,
+      "duration_ms": 6800
+    },
+    {
+      "case_id": "pharmacies-turkestan",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "darihanalar_turaly_malimetter"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "аптеки Туркестанская область"
+      ],
+      "input_tokens": 4298,
+      "output_tokens": 271,
+      "duration_ms": 17677
+    },
+    {
+      "case_id": "hotels-turkestan",
+      "lang": "kk",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "konak_uiler_turaly_derekter2"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "гостиницы Туркестанская область"
+      ],
+      "input_tokens": 4248,
+      "output_tokens": 515,
+      "duration_ms": 17347
+    },
+    {
+      "case_id": "bus-routes-turkestan",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "ontustik_kazakstan_oblysynyn_b"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 3,
+      "searches": [
+        "межгородние автобусные маршруты Туркестанская область",
+        "автобусные маршруты Туркестанская область"
+      ],
+      "input_tokens": 11603,
+      "output_tokens": 913,
+      "duration_ms": 40697
+    },
+    {
+      "case_id": "sports-almaty",
+      "lang": "kk",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "zhekemenshik_sporttyk_uiymdar"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 2,
+      "searches": [
+        "спортивные объекты Алматы государственные"
+      ],
+      "input_tokens": 7022,
+      "output_tokens": 777,
+      "duration_ms": 19214
+    },
+    {
+      "case_id": "water-almaty",
+      "lang": "en",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "sumen_zhabdyktau_zhelileri"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "водопроводные сети Алматы водоснабжение"
+      ],
+      "input_tokens": 4113,
+      "output_tokens": 527,
+      "duration_ms": 8556
+    },
+    {
+      "case_id": "cattle-shymkent",
+      "lang": "ru",
+      "cited_expected": true,
+      "retrieved_expected": true,
+      "citations": [
+        "iri_kara_mal_basy2"
+      ],
+      "unverified_citations": 0,
+      "tool_calls": 1,
+      "searches": [
+        "поголовье крупного рогатого скота Шымкент"
+      ],
+      "input_tokens": 4474,
+      "output_tokens": 527,
+      "duration_ms": 36480
+    },
+    {
+      "case_id": "debt-collectors",
+      "lang": "en",
+      "cited_expected": false,
+      "retrieved_expected": false,
+      "citations": null,
+      "unverified_citations": 0,
+      "tool_calls": 0,
+      "searches": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "duration_ms": 0,
+      "error": "agent: openrouter returned 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"50\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1793318400000\"},\"limit_source\":\"openrouter_free_tier_daily\",\"remedy_hint\":\"Wait for the daily reset (see X-RateLimit-Reset), or purchase credits to raise your free-model daily limit.\",\"provider_name\":null}},\"user_id\":\"user_3LMfOKkuYBROjKCsfJ9hAWFjM5Y\"}",
+      "skipped": true
+    },
+    {
+      "case_id": "corruption-crimes",
+      "lang": "ru",
+      "cited_expected": false,
+      "retrieved_expected": false,
+      "citations": null,
+      "unverified_citations": 0,
+      "tool_calls": 0,
+      "searches": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "duration_ms": 0,
+      "error": "agent: openrouter returned 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"50\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1793318400000\"},\"limit_source\":\"openrouter_free_tier_daily\",\"remedy_hint\":\"Wait for the daily reset (see X-RateLimit-Reset), or purchase credits to raise your free-model daily limit.\",\"provider_name\":null}},\"user_id\":\"user_3LMfOKkuYBROjKCsfJ9hAWFjM5Y\"}",
+      "skipped": true
+    },
+    {
+      "case_id": "internet-users",
+      "lang": "en",
+      "cited_expected": false,
+      "retrieved_expected": false,
+      "citations": null,
+      "unverified_citations": 0,
+      "tool_calls": 0,
+      "searches": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "duration_ms": 0,
+      "error": "agent: openrouter returned 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"50\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1793318400000\"},\"limit_source\":\"openrouter_free_tier_daily\",\"remedy_hint\":\"Wait for the daily reset (see X-RateLimit-Reset), or purchase credits to raise your free-model daily limit.\",\"provider_name\":null}},\"user_id\":\"user_3LMfOKkuYBROjKCsfJ9hAWFjM5Y\"}",
+      "skipped": true
+    }
+  ]
+}

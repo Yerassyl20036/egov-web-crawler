@@ -4,8 +4,18 @@
 
 **An AI agent that finds the right government dataset on [data.egov.kz](https://data.egov.kz), Kazakhstan's open-data portal. Ask in English, Russian or Kazakh and get an answer with verified links to the datasets.**
 
-<!-- DEMO: replace this placeholder with a GIF or screenshot of a real session, e.g. ![demo](docs/demo.png) -->
-> **Demo:** _screenshot coming soon._ Run it locally in two commands (see [Run it](#run-it)).
+<table>
+<tr>
+<td width="50%"><img src="docs/demo-steps.jpg" alt="Agent steps: a Kazakh question is turned into a Russian catalog search"></td>
+<td width="50%"><img src="docs/demo-answer.jpg" alt="Answer in Kazakh with verified dataset citations"></td>
+</tr>
+<tr>
+<td>A question in Kazakh ("Is there data on hospitals in Karaganda region?"). The steps panel shows the model translating it into the Russian query <code>больницы Карагандинская область</code> and searching.</td>
+<td>The answer, in Kazakh, links the Karaganda akimat's hospital list. Every link is checked against the catalog and listed under Sources.</td>
+</tr>
+</table>
+
+<sub>Real session on a free OpenRouter model, recorded 2026-10-29.</sub>
 
 ---
 
@@ -118,8 +128,28 @@ What this shows:
 
 `go run ./cmd/eval -agent` asks the agent every question and records whether the answer **cites an expected dataset**, whether any tool call **retrieved** one, how many links were **unverified** (not in the catalog), plus tool calls, latency and tokens.
 
-<!-- AGENT_EVAL_RESULTS -->
-_Agent results will be added after the first run with an API key (`go run ./cmd/eval -agent`). In CI it runs via **Actions → CI → Run workflow → agent_eval**, using the `DEEPSEEK_API_KEY` (or `ANTHROPIC_API_KEY`) repository secret._
+First run: 2026-10-29, OpenRouter free tier, `nvidia/nemotron-3.5-super-vl:free` ([raw results](evals/results/2026-10-29-openrouter-nemotron-3.5-super-free.json)).
+
+| Language | Questions scored | Cited an expected dataset | Expected dataset retrieved | Unverified links | Errors | Avg tool calls | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| all | 20 | **20 / 20** | 20 / 20 | 0 | 0 | 1.8 | 18.6 s |
+| English | 9 | 9 / 9 | 9 / 9 | 0 | 0 | 1.6 | 12.9 s |
+| Russian | 6 | 6 / 6 | 6 / 6 | 0 | 0 | 1.2 | 20.7 s |
+| Kazakh | 5 | 5 / 5 | 5 / 5 | 0 | 0 | 2.8 | 26.4 s |
+
+- **Coverage:** the free tier allows about 50 model requests a day, which stopped the run after the first 20 questions. All 20 are from the dev split; the other 19, including the 10 holdout questions, are still to run. These numbers show the loop works end to end on a free model. They are not yet a full benchmark.
+- **No made-up links:** all 29 dataset links across the 20 answers exist in the catalog. 23 point at an expected dataset; the other 6, in 5 answers, are related datasets offered as alternatives.
+- **Kazakh is the hardest:** Kazakh questions took 2.8 tool calls on average. One (ethnic composition of the population) needed 7 searches before the agent found the right dataset.
+- Cost: $0 on the free tier, about 8.6k input and 0.7k output tokens per question.
+
+To finish the run when the quota resets (questions that hit a rate limit are marked as skipped, not failed):
+
+```bash
+DATABASE_URL=... OPENROUTER_API_KEY=... LLM_PROVIDER=openrouter AGENT_MODEL=nvidia/nemotron-3.5-super-vl:free \
+  go run ./cmd/eval -agent -only debt-collectors,corruption-crimes,internet-users,broadband-kostanay,hospitals-pavlodar,hospitals-karaganda,military-medical,accredited-labs,museums-turkestan,notaries,notaries-by-region,cinemas,garbage-tariff-karaganda,garbage-tariff-almaty,colleges-turkestan,flood-preparation,veterinary-drugs,monopoly-tariffs,medical-orgs-by-region
+```
+
+In CI the agent eval runs via **Actions → CI → Run workflow → agent_eval**, using the `DEEPSEEK_API_KEY` (or `ANTHROPIC_API_KEY`) repository secret.
 
 ## Run it
 
