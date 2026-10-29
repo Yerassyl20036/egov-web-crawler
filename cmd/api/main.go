@@ -11,6 +11,7 @@
 //	WEB_DIR             serve the built frontend from this directory
 //	AUTO_SEED_FILE      seed this snapshot on start when the catalog is empty
 //	CHAT_RATE_PER_MIN   chat requests per client IP per minute (default 10)
+//	CHAT_DAILY_LIMIT    chat requests per UTC day across all clients (default 0 = unlimited)
 package main
 
 import (
@@ -75,6 +76,7 @@ func run(logger *slog.Logger) error {
 		WebDir:        os.Getenv("WEB_DIR"),
 		Logger:        logger,
 		ChatPerMinute: envInt("CHAT_RATE_PER_MIN", 10),
+		ChatPerDay:    envInt("CHAT_DAILY_LIMIT", 0),
 	}
 	if os.Getenv("ANTHROPIC_API_KEY") != "" || os.Getenv("ANTHROPIC_AUTH_TOKEN") != "" {
 		cfg := agent.FromEnv()

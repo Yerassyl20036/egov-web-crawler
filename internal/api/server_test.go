@@ -145,3 +145,16 @@ func TestChatDisabledWithoutAgent(t *testing.T) {
 		t.Fatalf("status %d, want 503", resp.StatusCode)
 	}
 }
+
+func TestChatDailyBudget(t *testing.T) {
+	s := &Server{Catalog: fakeCatalog{}, Agent: fakeRunner{}, ChatPerDay: 1}
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	body := `{"messages":[{"role":"user","content":"q"}]}`
+	if resp := postChat(t, srv.URL, body); resp.StatusCode != http.StatusOK {
+		t.Fatalf("first request: %d", resp.StatusCode)
+	}
+	if resp := postChat(t, srv.URL, body); resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("over budget: %d, want 429", resp.StatusCode)
+	}
+}

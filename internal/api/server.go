@@ -46,9 +46,16 @@ type Server struct {
 
 	// ChatPerMinute limits chat requests per client IP (0 = unlimited).
 	ChatPerMinute int
+	// ChatPerDay caps chat requests across all clients per UTC day
+	// (0 = unlimited), so a public demo has a bounded API bill.
+	ChatPerDay int
 
 	limiterOnce sync.Once
 	limiters    sync.Map // ip -> *rate.Limiter
+
+	dayMu    sync.Mutex
+	day      string
+	dayCount int
 }
 
 const (
@@ -158,6 +165,10 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "too many questions, please wait a minute")
 		return
 	}
+	if !s.allowToday() {
+		writeError(w, http.StatusTooManyRequests, "the demo's daily question budget is used up; try again tomorrow or run it locally")
+		return
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -259,6 +270,22 @@ func (s *Server) allow(r *http.Request) bool {
 	l, _ := s.limiters.LoadOrStore(ip, rate.NewLimiter(rate.Every(time.Minute/time.Duration(s.ChatPerMinute)), max(1, s.ChatPerMinute/2)))
 	s.limiterOnce.Do(func() { go s.forgetLimiters() })
 	return l.(*rate.Limiter).Allow()
+}
+
+func (s *Server) allowToday() bool {
+	if s.ChatPerDay <= 0 {
+		return true
+	}
+	s.dayMu.Lock()
+	defer s.dayMu.Unlock()
+	if today := time.Now().UTC().Format(time.DateOnly); today != s.day {
+		s.day, s.dayCount = today, 0
+	}
+	if s.dayCount >= s.ChatPerDay {
+		return false
+	}
+	s.dayCount++
+	return true
 }
 
 // forgetLimiters drops per-IP state every hour so the map cannot grow forever.
