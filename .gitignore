@@ -1,2 +1,21 @@
+# Secrets
 .env
-web-crawler
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Build output
+/bin/
+/api
+/crawler
+/seed
+/eval
+web/node_modules/
+web/dist/
+
+# Eval output
+eval-results*.json
