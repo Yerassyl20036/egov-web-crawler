@@ -1,0 +1,398 @@
+[
+  {
+    "id": "air-quality",
+    "lang": "en",
+    "split": "dev",
+    "question": "Is there data on air pollution monitoring in Kazakhstan?",
+    "query": "мониторинг загрязнения атмосферного воздуха",
+    "expected": [
+      "atmosferalyk_aua_lastanuy_moni1",
+      "monitoring_zagryazneniya_atmos2"
+    ]
+  },
+  {
+    "id": "kindergartens",
+    "lang": "en",
+    "split": "dev",
+    "question": "Where can I find a registry of kindergartens by region?",
+    "query": "реестр детских садов по областям",
+    "expected": [
+      "onirler_oblystar_kalalar_boi6"
+    ]
+  },
+  {
+    "id": "population-sex-age",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Нужна численность населения Казахстана по полу и возрастным группам",
+    "query": "численность населения по полу возрастным группам",
+    "expected": [
+      "zhynysy_zhane_zhekelegen_zhas_",
+      "population_of_the_republic_of_"
+    ]
+  },
+  {
+    "id": "population-ethnic",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Қазақстан халқының этностар бойынша саны туралы деректер бар ма?",
+    "query": "численность населения по этносам",
+    "expected": [
+      "kazakstan_respublikasy_halkyny2"
+    ]
+  },
+  {
+    "id": "subsoil-astana",
+    "lang": "en",
+    "split": "dev",
+    "question": "Subsoil use licenses issued in Astana",
+    "query": "реестр лицензий на недропользование Астана",
+    "expected": [
+      "216_register_of_issued_subsur"
+    ]
+  },
+  {
+    "id": "free-land-pavlodar",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Свободные земельные участки в Павлодарской области",
+    "query": "свободные земельные участки Павлодарская область",
+    "expected": [
+      "bos_zher_uchaskeleri1"
+    ]
+  },
+  {
+    "id": "free-land-shymkent",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Шымкент қаласындағы бос жер учаскелері туралы ақпарат",
+    "query": "свободные земельные участки Шымкент",
+    "expected": [
+      "shymkent_kalasy_boiynsha_bos_z"
+    ]
+  },
+  {
+    "id": "tourist-routes-almaty",
+    "lang": "en",
+    "split": "dev",
+    "question": "Tourist routes in Almaty city",
+    "query": "туристские маршруты Алматы",
+    "expected": [
+      "turistik_bagyttar1"
+    ]
+  },
+  {
+    "id": "road-repair-pavlodar",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Какие дороги ремонтируют в Павлодарской области?",
+    "query": "объекты ремонта дорог Павлодарская область",
+    "expected": [
+      "zholdardy_zhondeu_obektileri"
+    ]
+  },
+  {
+    "id": "road-length",
+    "lang": "en",
+    "split": "dev",
+    "question": "Statistics on the total length of highways",
+    "query": "протяженность автомобильных дорог",
+    "expected": [
+      "road_index"
+    ]
+  },
+  {
+    "id": "pension-recipients",
+    "lang": "en",
+    "split": "dev",
+    "question": "How many people receive pensions and social benefits?",
+    "query": "численность получателей пенсионных и социальных выплат",
+    "expected": [
+      "yntymakty_zeinetaky_alushylard3",
+      "okpvpp_mtszn"
+    ]
+  },
+  {
+    "id": "pension-debtors",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Список агентов, у которых долги по обязательным пенсионным взносам",
+    "query": "задолженность по обязательным пенсионным взносам агенты",
+    "expected": [
+      "01072019_zhylgy_zhagdaiga_al1"
+    ]
+  },
+  {
+    "id": "unemployment-pavlodar",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Павлодар облысындағы жұмыссыздар статистикасы",
+    "query": "статистика безработных Павлодарская область",
+    "expected": [
+      "halykty_zhumyspen_kamtu_ortaly1"
+    ]
+  },
+  {
+    "id": "unemployment-astana",
+    "lang": "en",
+    "split": "dev",
+    "question": "Unemployment statistics for Astana",
+    "query": "статистика безработных Астана",
+    "expected": [
+      "nur-sultan_kalasy_akimdiginin"
+    ]
+  },
+  {
+    "id": "pharmacies-turkestan",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Аптеки Туркестанской области",
+    "query": "аптеки Туркестанская область",
+    "expected": [
+      "darihanalar_turaly_malimetter"
+    ]
+  },
+  {
+    "id": "hotels-turkestan",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Түркістан облысындағы қонақ үйлер тізімі",
+    "query": "гостиницы Туркестанская область",
+    "expected": [
+      "konak_uiler_turaly_derekter2"
+    ]
+  },
+  {
+    "id": "bus-routes-turkestan",
+    "lang": "en",
+    "split": "dev",
+    "question": "Intercity bus routes in Turkestan region",
+    "query": "междугородние автобусные маршруты Туркестанская область",
+    "expected": [
+      "ontustik_kazakstan_oblysynyn_b"
+    ]
+  },
+  {
+    "id": "sports-almaty",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Алматы қаласындағы мемлекеттік спорт нысандары",
+    "query": "государственные спортивные объекты Алматы",
+    "expected": [
+      "zhekemenshik_sporttyk_uiymdar"
+    ]
+  },
+  {
+    "id": "water-almaty",
+    "lang": "en",
+    "split": "dev",
+    "question": "Water supply networks in Almaty",
+    "query": "сети водоснабжения Алматы",
+    "expected": [
+      "sumen_zhabdyktau_zhelileri"
+    ]
+  },
+  {
+    "id": "cattle-shymkent",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Поголовье крупного рогатого скота в Шымкенте",
+    "query": "поголовье крупного рогатого скота Шымкент",
+    "expected": [
+      "iri_kara_mal_basy2"
+    ]
+  },
+  {
+    "id": "debt-collectors",
+    "lang": "en",
+    "split": "dev",
+    "question": "Registry of debt collection agencies",
+    "query": "реестр коллекторских агентств",
+    "expected": [
+      "register_sollection_agencies_o1"
+    ]
+  },
+  {
+    "id": "corruption-crimes",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Статистика коррупционных преступлений от прокуратуры",
+    "query": "коррупционные преступления отчет прокуратура",
+    "expected": [
+      "gp_od_service_3k1"
+    ]
+  },
+  {
+    "id": "internet-users",
+    "lang": "en",
+    "split": "dev",
+    "question": "What share of people use the internet?",
+    "query": "доля пользователей сети интернет",
+    "expected": [
+      "interne_zhelisinin_paidalanush1",
+      "kosylu_ornyna_tauelsiz_interne"
+    ]
+  },
+  {
+    "id": "broadband-kostanay",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Қостанай облысында кең жолақты интернет беретін байланыс операторлары",
+    "query": "операторы связи широкополосный доступ интернет Костанайская область",
+    "expected": [
+      "internet_school"
+    ]
+  },
+  {
+    "id": "hospitals-pavlodar",
+    "lang": "en",
+    "split": "dev",
+    "question": "List of state hospitals in Pavlodar region",
+    "query": "перечень государственных больниц Павлодарская область",
+    "expected": [
+      "pavlodar_oblysy_emhana_turaly_"
+    ]
+  },
+  {
+    "id": "hospitals-karaganda",
+    "lang": "kk",
+    "split": "dev",
+    "question": "Қарағанды облысындағы ауруханалар туралы деректер бар ма?",
+    "query": "государственные больницы Карагандинская область",
+    "expected": [
+      "t202"
+    ]
+  },
+  {
+    "id": "military-medical",
+    "lang": "ru",
+    "split": "dev",
+    "question": "Адреса военно-врачебных комиссий",
+    "query": "адреса военно-врачебных комиссий",
+    "expected": [
+      "ortalyk_zhane_onirlik_askeri-d"
+    ]
+  },
+  {
+    "id": "accredited-labs",
+    "lang": "en",
+    "split": "dev",
+    "question": "List of accredited testing laboratories",
+    "query": "аккредитованные испытательные лаборатории",
+    "expected": [
+      "spisok_akkreditovannyh_ispytat3",
+      "opendata-api-uri848"
+    ]
+  },
+  {
+    "id": "museums-turkestan",
+    "lang": "en",
+    "split": "dev",
+    "question": "Museums in Turkestan region",
+    "query": "музеи Туркестанская область",
+    "expected": [
+      "ontustik_kazakstan_oblysyndagy8"
+    ]
+  },
+  {
+    "id": "notaries",
+    "lang": "en",
+    "split": "holdout",
+    "question": "Where can I find a list of notaries?",
+    "query": "список нотариусов",
+    "expected": [
+      "notariustar_tizimi4"
+    ]
+  },
+  {
+    "id": "notaries-by-region",
+    "lang": "ru",
+    "split": "holdout",
+    "question": "Сколько нотариусов в каждом регионе?",
+    "query": "количество нотариусов по регионам",
+    "expected": [
+      "onirler_bolinisinde_notarustar"
+    ]
+  },
+  {
+    "id": "cinemas",
+    "lang": "kk",
+    "split": "holdout",
+    "question": "Кинотеатрлар саны туралы деректер бар ма?",
+    "query": "число кинотеатров",
+    "expected": [
+      "number_of_cinemas_units"
+    ]
+  },
+  {
+    "id": "garbage-tariff-karaganda",
+    "lang": "en",
+    "split": "holdout",
+    "question": "Garbage collection tariffs in Karaganda region",
+    "query": "тарифы на вывоз мусора Карагандинская область",
+    "expected": [
+      "t48"
+    ]
+  },
+  {
+    "id": "garbage-tariff-almaty",
+    "lang": "kk",
+    "split": "holdout",
+    "question": "Алматы қаласында қоқыс шығару тарифтері",
+    "query": "тарифы на вывоз мусора Алматы",
+    "expected": [
+      "onirler_bolinisinde_kokys_shyg1"
+    ]
+  },
+  {
+    "id": "colleges-turkestan",
+    "lang": "en",
+    "split": "holdout",
+    "question": "Colleges in Turkestan region",
+    "query": "колледжи Туркестанская область",
+    "expected": [
+      "memlekettik_kolledzhder_tizimi"
+    ]
+  },
+  {
+    "id": "flood-preparation",
+    "lang": "ru",
+    "split": "holdout",
+    "question": "Как готовятся к паводкам?",
+    "query": "подготовка к паводковому периоду",
+    "expected": [
+      "taskyn_kezenine_daiyndyk"
+    ]
+  },
+  {
+    "id": "veterinary-drugs",
+    "lang": "en",
+    "split": "holdout",
+    "question": "Registry of veterinary drugs",
+    "query": "реестр ветеринарных препаратов",
+    "expected": [
+      "409_mcx"
+    ]
+  },
+  {
+    "id": "monopoly-tariffs",
+    "lang": "ru",
+    "split": "holdout",
+    "question": "Тарифы естественных монополий",
+    "query": "тарифы субъектов естественных монополий",
+    "expected": [
+      "tariffysem",
+      "telekommunikaciya_men_poshta_b1"
+    ]
+  },
+  {
+    "id": "medical-orgs-by-region",
+    "lang": "kk",
+    "split": "holdout",
+    "question": "Облыстар бойынша медициналық ұйымдар саны",
+    "query": "количество медицинских организаций по областям",
+    "expected": [
+      "oblystar_boiynsha_medicinalyk_"
+    ]
+  }
+]
